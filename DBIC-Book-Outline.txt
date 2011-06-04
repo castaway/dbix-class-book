@@ -1,0 +1,116 @@
+General notes
+=============
+
+* Each chapter will list the pre-requisite knowledge (inc. other chapters) needed for it.
+* Each section should demonstrate and encourage exercises and tests.
+* Accompanying/Downloadable skeleton code with tests for each chapter will be created.
+
+
+DBIx::Class Outline
+===================
+
+Introduction and general data storage
+-------------------------------------
+
+### What is DBIx::Class?
+
+### Methods of data storage with Perl
+
+### Why a database?
+
+### Why DBIx::Class?
+
+Databases, design and layout
+----------------------------
+
+### Some databases to choose from
+
+### Tables, Columns, Primary and Foreign keys, Indexes
+
+### Design, 1/2/3 Normal forms
+
+### Examples and exercises
+
+Setting up DBIx::Class, basic usage
+-----------------------------------
+
+### Types of DBIC classes
+
+### Anatomy of a Schema and Result class (User.pm)
+
+(side bar on dealing with strange column names or reserved words)
+
+### Defining relationsips between tables
+
+### Exercise, Post.pm, tests for exercise
+
+### How to test your DBIC code
+
+### Basic usage, connect, search/find, output data (accessors)
+
+Creating, Reading, Updating and Deleting
+----------------------------------------
+
+### Create a User entry, prove it worked with a test
+
+### Importing multiple rows at once, test results
+
+### Finding and updating one row
+
+### Create a Post entry for the user
+
+### Update many rows at once
+
+### Deleting a row or rows
+
+### Advanced create/update/delete
+
+Further queries and helpers
+---------------------------
+
+### Recap simple search queries?
+
+### ResultSet stores set of conditions for a query
+
+### Related data, fetching, filtering, grouping
+
+### Aggregates (sum, count)
+
+### Clever stuff: having, subselects, ...
+
+### Helpers on CPAN (union ... )
+
+### Querying/defining views, stored procedures
+
+### Transactions, locks etc
+
+Components and extending
+------------------------
+
+### Adding methods to Row/ResultSet objects
+
+### Turning column data into useful objects (Inflate/Deflate)
+
+### Storing your own data
+
+### Setting default values, validation
+
+### Encoding content (passwords)
+
+### Auditing, previewing data
+
+More CPAN extensions/modules
+----------------------------
+
+### Versioning, refactoring, deploying
+
+### TimeStamp, ...
+
+### Replication
+
+### Candy
+
+### & Moose
+
+### & Catalyst (other frameworks?)
+
