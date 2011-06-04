@@ -427,7 +427,10 @@ for each Result class in the Schema.
 
 We will visit examples of these later.
 
-## Making a database
+Basic usage
+-----------
+
+### Making a database
 
 If you're starting from scratch and don't actually have a database
 yet, run the following now to create one:
@@ -442,20 +445,19 @@ We will discuss [deployment](http://search.cpan.org/perldoc?DBIx::Class::Tutoria
 at length later when talking about how to change your schema without
 having to destroy your existing data.
 
+## ResultSet and Row objects
+----------------------------
+
+tbd.
+
+
 CONCLUSIONS
 -----------
 
 You now have a couple of well-defined Result classes we can use to
 actually create and query some data from your database.
 
-Next Chapter
-------------
 
-[Creating and finding users](/tutorials/dbix-class/chapter/GettingStarted)
-
-# AUTHOR
-
-Jess Robinson <castaway@desert-island.me.uk>
 
 [^modernperl]: Read Learning Perl or Modern Perl to gain a basic understanding of Perl classes and packages.
 [^schemaloader]: [DBIx::Class::Schema::Loader](http://search.cpan.org/dist/DBIx-Class-Schema-Loader]
