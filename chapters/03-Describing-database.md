@@ -43,10 +43,10 @@ is done by creating a set of Perl classes containing the definitions.
 
 While it is possible to have DBIx::Class dynamically extract this data
 from your actual database at startup time, this is considered a method
-of last resort.[^schemaloader] The main reason for this is that changes to your
-database layout in unexpected ways should cause your code to complain,
-and not attempt to load and run anyway, potentially messing up your
-data.
+of last resort.[^schemaloader] The main reason for this is that
+changes to your database layout in unexpected ways should cause your
+code to complain, and not attempt to load and run anyway, potentially
+messing up your data.
 
 Later we will cover ways of versioning and verifying your schema[^schema] definitions.
 
@@ -63,10 +63,10 @@ the particular database it will be talking to. The class can be
 re=used to connect to a different instance of the database, with a
 different connection string, if needed.
 
-* A **Result class** should be defined for each table or view to be accessed,
-this is used by DBIx::Class to represent a row of results from a query
-done via that particular table or view. Methods acting on a row of
-data can be added here.
+* A **Result class** should be defined for each table or view to be
+accessed, this is used by DBIx::Class to represent a row of results
+from a query done via that particular table or view. Methods acting on
+a row of data can be added here.
 
 Other types of classes can be used to extend the functionality of the
 schema, these will be introduced later.
@@ -315,7 +315,7 @@ than the primary key, which must also be unique). The first argument
 is a name for the constraint which can be anything, the second is a
 arrayref of column names.
 
-### Table relationships
+### Cross-Table relationships
 
 The table structure information alone will allow you to query and
 manipulate individual tables using DBIx::Class. However, DBIx::Class'
@@ -347,7 +347,7 @@ on.
 
 - Data types
 
-The `data_type` field for each column in the `add_columns` is a free
+    The `data_type` field for each column in the `add_columns` is a free
 text field, it is only used by DBIx::Class when deploying (creating
 tables) the schema to a database. At that point `data_type` values
 are converted to the appropriate type for your database by
@@ -355,7 +355,7 @@ are converted to the appropriate type for your database by
 
 - Column names
 
-In an ideal world, all column names in your database would be valid
+    In an ideal world, all column names in your database would be valid
 perl identifiers, that is consist of only word [a-zA-Z_] or digit
 [0-9] characters. As this is not always the case, the column info
 hashref for each column can also contain an `accessor` key which
@@ -368,11 +368,17 @@ Note that the original name will still need to be used when creating new rows or
 
 - More relationship types
 
-[belongs_to](DBIx::Class::Relationship/belongs_to)
+* belongs_to
 
-[has_one](DBIx::Class::Relationship/has_one)
+    Defines an accessor method for fetching the foreign row referenced by a foreign key column. 
 
-[might_have](DBIx::Class::Relationship/might_have)
+* has_one
+
+    Creates an accessor for fetching a single row that contains our _primary key_. This is like `has_many` but assumes exactly one matching row.
+
+* might_have
+
+    Accessor for a single matching row that contains our _primary key_. Very similar to `has_one`, but creates a `left` type join as the related row may not exist at all.
 
 ### Exercise: The Post class
 
@@ -389,9 +395,7 @@ The posts table looks like this in mysql:
       CONSTRAINT posts_fk_user_id FOREIGN KEY (user_id) REFERENCES users (id)
     );
 
-
-You will need another type of relationship for this class,
-`belongs_to`. Use it like this:
+You will need to create a `belongs_to` relationship for this class. Use it like this:
 
     __PACKAGE__->belongs_to('user', 'MyBlog::Schema::Result::User', 'user_id');
 
@@ -403,52 +407,58 @@ The second argument is the related class, the _User_ class we created
 before.
 
 The third argument is the column in the current class that contains
-the primary key of the related class.
+the primary key of the related class, the _foreign key_ column.
 
-Create the Result class for it.
+Create the Result class for it as MyBlog::Schema::Result::Post.
 
-<a name="create-post-class"></a>
+#### Test it!
 
-[% include_exercise('create-post-class') %]
-
-### More result classes
-
-We will be meeting some more _Result classes_ along the way, I will
-describe them when we need them.
-
-The ResultSet class
--------------------
-
-ResultSet classes can be added optionally, overriding the default
-[DBIx::Class::ResultSet](http://search.cpan.org/perldoc?DBIx::Class::ResultSet). These are useful for adding oft-used
-searches as methods to a set of data, to keep them in the model layer
-rather than in the calling code. One ResultSet class can be created
-for each Result class in the Schema.
-
-We will visit examples of these later.
+See appendix ## or the downloadable content for the skeleton Chapter 3 code. Add your Post.pm file to the lib/MyBlog/Schema/Result/ directory. Run the test in t/create-post-class.t file.
 
 Basic usage
 -----------
 
-### Making a database
+### Create a database
 
-If you're starting from scratch and don't actually have a database
-yet, run the following now to create one:
+In the appendix ## and in the downloadable content, there is an .sql
+file containing the tables described in this chapter. To run this you will need [SQLite DBD](http://search.cpan.org/dist/DBD-SQLite), which should have een installed along with DBIx::Class, then you can create the database
+like this:
 
-    perl -MMyBlog::Schema -le'my $schema = MyBlog::Schema->connect("dbi:SQLite:test.db"); $schema->deploy();'
+    sqlite3 myblog.db < myblog.sql
 
-Installing [DBIx::Class](http://search.cpan.org/perldoc?DBIx::Class) will have also installed [DBD::SQLite](http://search.cpan.org/perldoc?DBD::SQLite), a
-small one-file database which is useful for testing and portable
-databases for applications.
+### Making a database using DBIx::Class
+
+DBIx::Class can also be used to create a database using your class files. To do this you will need the [SQL::Translator](http://search.cpan.org/dist/SQL-Translator) package installed.
+
+Then `connect` to the Schema class (this returns a Schema object), using a DSN[^dsn]. The `deploy` method calls SQL::Translator to output the appropriate SQL CREATE statements for the chosen database given in the DSN, then it sends the statements to the database itself.
+
+    perl -MMyBlog::Schema -le'my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db"); $schema->deploy();'
 
 We will discuss [deployment](http://search.cpan.org/perldoc?DBIx::Class::Tutorial::Deployment) more
 at length later when talking about how to change your schema without
 having to destroy your existing data.
 
-## ResultSet and Row objects
-----------------------------
+### Quick usage 
 
-tbd.
+A short script to test your schema:
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+
+    use MyBlog::Schema;
+
+    my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db");
+    my $fred = $schema->resultset('User')->create({ 
+      username => 'fred',
+      password => 'mypass',
+      realname => 'Fred Bloggs',
+      email => 'fred@bloggs.com',
+    });
+    
+    print $fred->email;
+
+Learn what all this does in Chapter 4!
 
 
 CONCLUSIONS
@@ -458,10 +468,10 @@ You now have a couple of well-defined Result classes we can use to
 actually create and query some data from your database.
 
 
-
 [^modernperl]: Read Learning Perl or Modern Perl to gain a basic understanding of Perl classes and packages.
 [^schemaloader]: [DBIx::Class::Schema::Loader](http://search.cpan.org/dist/DBIx-Class-Schema-Loader]
 [^schema]: A collection of classes used to describe a database for DBIx::Class is called a "schema", after the main class, which derives from DBIx::Class::Schema.
 [^corecomponent]: It is also possible to inherit purely from the `DBIx::Class` class, and then load the `Core` component, or each required component, as needed. Components will be explained later.
+[^dsn]: Data source name, connection info for a database, see [DBI](http://search.cpan.org/perldoc?DBI)
 
 
