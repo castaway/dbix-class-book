@@ -421,8 +421,7 @@ Basic usage
 ### Create a database
 
 In the appendix ## and in the downloadable content, there is an .sql
-file containing the tables described in this chapter. To run this you will need [SQLite DBD](http://search.cpan.org/dist/DBD-SQLite), which should have een installed along with DBIx::Class, then you can create the database
-like this:
+file containing the tables described in this chapter. To run this you will need [the SQLite DBD](http://search.cpan.org/dist/DBD-SQLite), which should have been installed along with DBIx::Class, then you can create the database like this:
 
     sqlite3 myblog.db < myblog.sql
 
@@ -430,7 +429,7 @@ like this:
 
 DBIx::Class can also be used to create a database using your class files. To do this you will need the [SQL::Translator](http://search.cpan.org/dist/SQL-Translator) package installed.
 
-Then `connect` to the Schema class (this returns a Schema object), using a DSN[^dsn]. The `deploy` method calls SQL::Translator to output the appropriate SQL CREATE statements for the chosen database given in the DSN, then it sends the statements to the database itself.
+First `connect` to the Schema class (this returns a Schema object), using a DSN[^dsn]. The `deploy` method on the Schema object calls SQL::Translator to output the appropriate SQL CREATE statements for the chosen database given in the DSN, then it sends the statements to the database itself.
 
     perl -MMyBlog::Schema -le'my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db"); $schema->deploy();'
 
@@ -440,7 +439,7 @@ having to destroy your existing data.
 
 ### Quick usage 
 
-A short script to test your schema:
+A short script to test your classes:
 
     #!/usr/bin/env perl
     use strict;
