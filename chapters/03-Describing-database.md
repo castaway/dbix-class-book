@@ -158,7 +158,7 @@ sub-components such as the **PK** (Primary key) component for defining
 and dealing with primary keys, and the **Relationship** component for
 creating relations to other result classes.
 
-### Getting started, the User class
+## Getting started, the User class
 
 To show the Result class in action we will look at a simple `User`
 class which might be used to represent users in any web
