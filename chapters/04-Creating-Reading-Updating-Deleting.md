@@ -78,13 +78,19 @@ To see what's going on, set the shell environment variable [`DBIC_TRACE`](## app
 
 NB: The `?` symbols are placeholders, the actual values will be quoted according to your database rules, and passed in.
 
+As the `id` column was defined as being `is_auto_increment` we haven't
+supplied that value at all, the database will fill it in, and the
+`insert` call will fetch the value and store it in our `$fred`
+object. It will also do this for other database-supplied fields if
+defined as `retrieve_on_insert` in `add_columns`.
+
 ### Your turn, create a User and verify with a test
 
 Now that's all hopefully made sense, time for a bit of Test-Driven-Development. 
 
 This is a short Perl test that will check that a user, and only one user, with the `email` of **alice@bloggs.com** exists in the database. You can type it up into a file named **check-alice-exists.t** in t/ directory, or unpack it from the provided tarball.
 
-Note, their are tests for a couple of other things too, happy coding!
+Note, there are tests for a couple of other things too, happy coding!
 
     #!/usr/bin/env perl
     use strict;
@@ -92,29 +98,86 @@ Note, their are tests for a couple of other things too, happy coding!
     
     use Test::More;
     use_ok('MyBlog::Schema');
-    
+
+    unlink 't/var/myblog.db';
     my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
     ## Your code goes here!
     
     
-    ## Tests:
-    
-    # 1. Number of users with email alice@bloggs.com is exactly 1.
+    ## Tests:   
     my $users_rs = $schema->resultset('User')->search({ email => 'alice@bloggs.com' });
     is($users_rs->count, 1, 'Found exactly one alice user');
 
     my $alice = $users_rs->next();
+    is($alice->id, 1, 'Magically discovered Alice's PK value');
     is($alice->username, 'alice', 'Alice has boring ole username of "alice"');
     is($alice->password, 'aliceandfred', "Guessed Alice's password, woot!');
     like($alice->realname, qr/^Alice/, 'Yup, Alice is named Alice');
     
     done_testing;
 
-## We also didn't provide a value for the auto-incrementing primary key here, t
+Finished? If you get stuck, solutions are included with the downloadable code, and in the Appendix.
 
-## Create a User entry, prove it worked with a test
+## Importing multiple rows at once
 
-## Importing multiple rows at once, test results
+Creating users one at a time when they register is all very useful,
+but sometimes we want to import a whole bunch of data at once. We can
+do this using the `populate` method on **ResultSet**. 
+
+Populate can be called with either an arrayref of hashrefs, one for
+each row, using the column names as keys; or an arrayref of arrayrefs,
+with the first arrayref containing the column names, and the rest
+containing the values in the same order.
+
+Here's an example that will add Fred and Alice at the same time.
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    $users_rs->populate([
+      [qw/realname username password email/],
+      ['Fred Bloggs', 'fred', 'mypass', 'fred@bloggs.com'],
+      ['Alice Bloggs, 'alice', 'aliceandfred', 'alice@bloggs.com']
+    ]);
+    
+Populate is most useful in _void context_, that is without requesting
+a return value from the call. In this case it will use DBI's
+`execute_array` method to insert multiple sets of row data. In list
+context `populate` will call `create` repeatedly and return a list of
+**Row** objects.
+
+This code will do the same work as the above example, but return
+DBIx::Class **Row** objects for later use:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    my @users = $users_rs->populate([
+    {
+      realname => 'Fred Bloggs',
+      username => 'fred',
+      password => 'mypass',
+      email    => 'fred@bloggs.com',
+    },
+    {
+      realname => 'Alice Bloggs, 
+      username => 'alice', 
+      password => 'aliceandfred', 
+      email    => 'alice@bloggs.com',
+    }
+    ]);
+
+## Your turn, import some users from a CSV file and verify
+
+The downloadable content for this chapter contains a file named
+_multiple-users.csv_ containing severa user's data in
+comma-separated-values format. To read the lines from the file you can
+parse it using a module like
+[Text::xSV](https://metacpan.org/module/Text::xSV). The file can also be found in the Appendix if you don't have the downloadable content.
+
+This is a Perl test you can add your import code to, which will verify
+the results.
 
 ## Finding and updating one row
 
