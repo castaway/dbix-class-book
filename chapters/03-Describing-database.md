@@ -296,6 +296,10 @@ can be.
 The `set_primary_key` method tells DBIx::Class which column or columns
 contain your _primary key_ data for this table.
 
+The _primary key_ should contain a column or set of columns that can
+be used to uniquely identify a single row in the table. DBIx::Class
+will use them to delete or update single rows.
+
 [%# mention this with the create() call ? 
 The primary key columns are used by DBIx::Class to determine which
 values it should add to the row object after it has been inserted into
