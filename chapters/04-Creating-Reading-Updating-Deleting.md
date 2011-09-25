@@ -171,15 +171,64 @@ DBIx::Class **Row** objects for later use:
 ## Your turn, import some users from a CSV file and verify
 
 The downloadable content for this chapter contains a file named
-_multiple-users.csv_ containing severa user's data in
+_multiple-users.csv_ containing several user's data in
 comma-separated-values format. To read the lines from the file you can
 parse it using a module like
-[Text::xSV](https://metacpan.org/module/Text::xSV). The file can also be found in the Appendix if you don't have the downloadable content.
+[Text::xSV](https://metacpan.org/module/Text::xSV). The test file can also be found in the Appendix if you don't have the downloadable content.
 
-This is a Perl test you can add your import code to, which will verify
-the results.
+Data file:
 
-## Finding and updating one row
+    "realname", "username", "password", "email"
+    "Janet Bloggs", "janet", "fredsdaughter", "janet@bloggs.com"
+    "Dan Bloggs", "dan", "sillypassword", "dan@bloggs.com"
+
+Add your import code to this Perl test, then run to see how you did:
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use Text::xSV;
+    
+    use Test::More;
+    use_ok('MyBlog::Schema');
+
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+    
+    my $csv = Text::xSV->new();
+    $csv->load_file('t/data/multiple-users.csv');
+    $csv->read_header();
+    
+    while ($csv->get_row()) {
+      my $row = $csv->extract_hash();
+
+      ## Your code goes here!
+
+
+    }
+
+    ## Tests:
+    
+    is($schema->resultset('User')->count, 2, 'Two users exist in the database'));
+    my $janet = $schema->resultset('User')->find({ username => 'janet' });
+    ok($janet, 'Found Janet');
+    is($janet->email, 'janet@bloggs.com', 'Janet has the correct email address');
+    my $dan = $schema->resultset('User')->find({ username => 'dan' });
+    ok($dan, 'Found Dan');
+    is($dan->password, 'sillypassword', "Got Dan's password right");
+
+Lookup the solution if you get stuck.
+
+## Finding and changing a User's data later on
+
+We've entered several users into our database, now it would be useful
+to be able to find them again, and update their data. If you've been
+paying close attention to the tests we've used to check your progress,
+you'll notice the `find` ResultSet method.
+
+`find` can be used to find a single database row, using either its primary key or a known unique key
 
 ## Create a Post entry for the user
 
