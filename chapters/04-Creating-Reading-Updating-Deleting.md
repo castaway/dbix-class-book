@@ -55,7 +55,11 @@ Now that we have a ResultSet, we can start adding some data. To create one user,
     my $fred = $users_rs->create({
       realname => 'Fred Bloggs',
       username => 'fred',
-      password => 'mypass',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
       email => 'fred@bloggs.com',
     });
     
@@ -66,7 +70,11 @@ Now that we have a ResultSet, we can start adding some data. To create one user,
     my $fred = $users_rs->new_result();
     $fred->realname('Fred Bloggs');
     $fred->username('fred');
-    $fred->password('mypass');
+    $fred->password(Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+    ));
     $fred->email('fred@bloggs.com');
     $fred->insert();
 
@@ -74,7 +82,7 @@ Note how all the columns described in the `User.pm` class using `add_columns` ap
 
 To see what's going on, set the shell environment variable [`DBIC_TRACE`](## appendix?) to a true value, and DBIx::Class will display the SQL statement for either of these code samples on STDOUT:
 
-    INSERT INTO users (realname, username, password, email) VALUES (?, ?, ?, ?): 'Fred Bloggs', 'fred', 'mypass', 'fred@bloggs.com'
+    INSERT INTO users (realname, username, password, email) VALUES (?, ?, ?, ?): 'Fred Bloggs', 'fred', 'XXYYZZ', 'fred@bloggs.com'
 
 NB: The `?` symbols are placeholders, the actual values will be quoted according to your database rules, and passed in.
 
@@ -112,7 +120,7 @@ Note, there are tests for a couple of other things too, happy coding!
     my $alice = $users_rs->next();
     is($alice->id, 1, 'Magically discovered Alice's PK value');
     is($alice->username, 'alice', 'Alice has boring ole username of "alice"');
-    is($alice->password, 'aliceandfred', "Guessed Alice's password, woot!');
+    ok($alice->password->match('aliceandfred'), "Guessed Alice's password, woot!');
     like($alice->realname, qr/^Alice/, 'Yup, Alice is named Alice');
     
     done_testing;
@@ -137,10 +145,10 @@ Here's an example that will add Fred and Alice at the same time.
 
     $users_rs->populate([
       [qw/realname username password email/],
-      ['Fred Bloggs', 'fred', 'mypass', 'fred@bloggs.com'],
-      ['Alice Bloggs, 'alice', 'aliceandfred', 'alice@bloggs.com']
+      ['Fred Bloggs', 'fred', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'), 'fred@bloggs.com'],
+      ['Alice Bloggs, 'alice', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred'), 'alice@bloggs.com']
     ]);
-    
+
 Populate is most useful in _void context_, that is without requesting
 a return value from the call. In this case it will use DBI's
 `execute_array` method to insert multiple sets of row data. In list
@@ -157,13 +165,13 @@ DBIx::Class **Row** objects for later use:
     {
       realname => 'Fred Bloggs',
       username => 'fred',
-      password => 'mypass',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'),
       email    => 'fred@bloggs.com',
     },
     {
       realname => 'Alice Bloggs, 
       username => 'alice', 
-      password => 'aliceandfred', 
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred'), 
       email    => 'alice@bloggs.com',
     }
     ]);
@@ -217,18 +225,40 @@ Add your import code to this Perl test, then run to see how you did:
     is($janet->email, 'janet@bloggs.com', 'Janet has the correct email address');
     my $dan = $schema->resultset('User')->find({ username => 'dan' });
     ok($dan, 'Found Dan');
-    is($dan->password, 'sillypassword', "Got Dan's password right");
+    ok($dan->password->match('sillypassword'), "Got Dan's password right");
 
 Lookup the solution if you get stuck.
 
 ## Finding and changing a User's data later on
 
 We've entered several users into our database, now it would be useful
-to be able to find them again, and update their data. If you've been
-paying close attention to the tests we've used to check your progress,
-you'll notice the `find` ResultSet method.
+to be able to find them again, and log them in or update their
+data. If you've been paying close attention to the tests we've used to
+check your progress, you'll notice the `find` ResultSet method.
 
-`find` can be used to find a single database row, using either its primary key or a known unique key
+`find` can be used to find a single database row, using either its
+primary key or a known unique set of columns. These are both named in
+the **Result Class** using `set_primary_key` and
+`add_unique_constraint` respectively. By default `find` will try all
+the given columns against the primary and unique keys to find the best
+match, this will not work well if no key columns are present.
+
+To login, the user will give you their username and password data, to
+verify against a securely stored password, we need to first find the
+User object, then test against the password.
+
+Enough chatter, here's some code:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    my $fred = $users_rs->find({ username => 'fred' }, { key => 'username_idx' });
+    if( $fred->password->match($password) ) {
+        print "Yup that's definitely Fred\n";
+    }
+    
+We explcitly name the `username_idx` unique constraint to help `find` create the correct query.
+
 
 ## Create a Post entry for the user
 

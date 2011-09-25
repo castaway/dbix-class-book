@@ -182,7 +182,8 @@ This is the result class for the users table:
     3. use warnings;
     4. use base 'DBIx::Class::Core';
     5.
-    6. __PACKAGE__->table('users');
+    6. __PACKAGE__->load_components(qw(InflateColumn::Authen::Passphrase));
+    7. __PACKAGE__->table('users');
 
 Lines 1-4 are standard Perl code:
 
@@ -207,18 +208,19 @@ documented in [perldata](http://search.cpan.org/perldoc?perldata).
 
 Then we get to the DBIx::Class specific bits:
 
-[%#
+- Line 6
+
 `load_components` comes from [DBIx::Class::Componentised](http://search.cpan.org/perldoc?DBIx::Class::Componentised) and is
 used to load a series of modules whose methods can delegate to each
 other. Thus components need to be loaded in a specific order. The
 [DBIx::Class::Core](http://search.cpan.org/perldoc?DBIx::Class::Core) component should always be loaded last so that
 its methods are called after those of other components.
 
-For a some examples of other useful components, see
-L<DBIx::Class::Tutorial::??>.
-%]
+Here we're loading an inflate/deflate module to which can inflate database content into an object, and deflate incoming data from an object back into the database. The Authen::Passphrase module hashes passwords as they're entered into the database, and inflate back to an object which can be used to verify them.
 
-- Line 6
+For some examples of other useful components, see Chapter XX
+
+- Line 7
 
 The `table` method is used to store the name of the database table this class represents. The name of a database view can also be used here. The method is inherited from `DBIx::Class::ResultSourceProxy::Table` which is loaded as a subclass by `DBIx::Class::Core`.
 
@@ -246,15 +248,16 @@ Now you can add lines describing the columns in your table.
     21.    password => {
     22.      data_type => 'varchar',
     23.      size => 255,
-    24.    },
-    25.    email => {
-    26.      data_type => 'varchar',
-    27.      size => 255,
-    28.    },
-    29. );
+    24.      inflate_passphrase => 'rfc2307',
+    25.    },
+    26.    email => {
+    27.      data_type => 'varchar',
+    28.      size => 255,
+    29.    },
+    30. );
 
-    30. __PACKAGE__->set_primary_key('id');
-    31. __PACKAGE__->add_unique_constraint('username_idx' => ['username']);
+    31. __PACKAGE__->set_primary_key('id');
+    32. __PACKAGE__->add_unique_constraint('username_idx' => ['username']);
 
 - Line 8
 
@@ -291,7 +294,7 @@ The username column is a `varchar` datatype which requires a `size`
 parameter to tell the database the maximum length data in the column
 can be.
 
-- Line 30
+- Line 31
 
 The `set_primary_key` method tells DBIx::Class which column or columns
 contain your _primary key_ data for this table.
@@ -311,7 +314,7 @@ This and other methods dealing with primary keys are described in
 
 #%]
 
-- Line 31
+- Line 32
 
 `add_unique_constraint` is called to let DBIx::Class know when your
 table has other columns which hold unique values across rows (other
@@ -450,11 +453,16 @@ A short script to test your classes:
     use warnings;
 
     use MyBlog::Schema;
+    use Authen::Passphrase::SaltedDigest;
 
     my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db");
     my $fred = $schema->resultset('User')->create({ 
       username => 'fred',
-      password => 'mypass',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
       realname => 'Fred Bloggs',
       email => 'fred@bloggs.com',
     });
