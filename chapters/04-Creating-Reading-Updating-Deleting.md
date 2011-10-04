@@ -253,14 +253,73 @@ Enough chatter, here's some code:
     my $users_rs = $schema->resultset('User');
 
     my $fred = $users_rs->find({ username => 'fred' }, { key => 'username_idx' });
-    if( $fred->password->match($password) ) {
+    if( defined($fred) && $fred->password->match($password) ) {
         print "Yup that's definitely Fred\n";
     }
     
-We explcitly name the `username_idx` unique constraint to help `find` create the correct query.
+We explcitly name the `username_idx` unique constraint to help `find`
+create the correct query. It will return either a DBIx::Class::Row
+object, or undefined to indicate that no matching row was found. The
+Row object has accessor methods matching the column names provided in
+the **Result Class**, which will return the values stored in the
+database. If an InflateColumn component has been used, then an object
+representing the data will be returned instead.
 
+Now that we've verified that fred is who he says he is, we can allow
+him to update his email address or change his password, and store
+those changes.
+
+This example uses a small console based programm to illustrate, as
+there wasn't room for an entire Web application.
+
+    my $username = prompt('x', 'Your username', 'Enter your username', '');
+
+    ## Find user row:
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    my $fred = $users_rs->find({ username => $username }, 
+                               { key => 'username_idx' });
+
+    ## Output the email address value:
+    print "Your email address is set to: ", $fred->email, "\n";
+    use Term::Prompt;
+    my $new_email = prompt('x', 'New Email', 'Enter a valid email address', $fred->email);
+    my $password = prompt('p', 'Your password', 'Enter your password', '');
+
+    ## Verify user:    
+    if( !defined($fred) || !$fred->password->match($password) ) {
+        print "Sorry, you're not Fred, not changing the email address\n";
+    }
+    
+    ## Update changed email address in database:
+    $fred->email($new_email);
+    $fred->update();
+
+## <Can't think of a useful exercise here>
 
 ## Create a Post entry for the user
+
+We've entered some single unrelated rows into the database, now we'll
+look at how the relations work. In DBIx::Class *related* data means
+data stored across multiple tables which is related in some way.
+
+[%# yes we know this is at odds to how "real" relations in RDBMS' are described.. %]
+
+In the `User` class we defined a `has_many` relationship to the `Post`
+class, indicating that a user can create multiple posts. In the
+database the `user_id` field stores the id of the Post-owning user
+against each Post row.
+
+Once we have a Row object representing a user, we can create related
+Post rows without having to spell out the relationship:
+
+    $fred->create_related('posts', {
+        title => 'My first post!',
+        post => 'A very short post',
+    });
+    
+
 
 ## Update many rows at once
 
