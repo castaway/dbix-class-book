@@ -403,9 +403,9 @@ no longer in the database, and `1` (true) if it is.
 Your database will automatically remove any rows related to this one
 using foreign keys, if set up correctly. This means all posts created
 by the user *fred2* will be deleted. If the database does not remove
-them, DBIx::Class make an attempt itself, as `has_many` relation is set
-up to cascade deletes by default. To change this behaviour, set up the
-relationship with `cascade_delete` set to 0:
+them, DBIx::Class will make an attempt itself, as the `has_many`
+relation is set up to cascade deletes by default. To change this
+behaviour, set up the relationship with `cascade_delete` set to 0:
 
     32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id', { cascade_delete => 0 });
 
