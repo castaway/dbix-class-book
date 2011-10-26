@@ -403,14 +403,14 @@ no longer in the database, and `1` (true) if it is.
 Your database will automatically remove any rows related to this one
 using foreign keys, if set up correctly. This means all posts created
 by the user *fred2* will be deleted. If the database does not remove
-them, DBIx::Class make an attempt itself, a `has_many` relation is set
+them, DBIx::Class make an attempt itself, as `has_many` relation is set
 up to cascade deletes by default. To change this behaviour, set up the
 relationship with `cascade_delete` set to 0:
 
     32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id', { cascade_delete => 0 });
 
 
-To remove a set of rows, find the resultset object that matches the
+To remove a multiple rows at once, create a resultset object that matches the
 rows to remove, and call the `delete` method on it:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
@@ -421,8 +421,91 @@ rows to remove, and call the `delete` method on it:
       realname => [ map { { 'like' => "%$_%"} } @badwords ],
     });
     $users_to_delete->delete;
-    
+
+Don't forget to backup your data before you try these, just in
+case. If you are trying to hide or deactivate data, consider having a
+field in your table for `archived` or similar, and setting it to a
+true value to indicate the data is no longer in use.
 
 ## Advanced create/update/delete
+## find_or_create, update_or_create, multi create
+
+Now we go a bit wild, there are a bunch of useful methods and
+techniques which simplify your code by combining various other methods
+we've already looked at in this chapter. I'll give a description and
+usage hint for each one, then we'll do some more tests.
+
+* Multi-create
+
+`create` can do more than just straight-forward creation of single
+rows, it can also be given a data structure with more levels of
+related data to create rows for, as long as the top level represents
+the table you started on.
+
+For example, you can do this:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+    
+    $users_rs->create({
+      realname => 'John Smith',
+      username => 'johnsmith',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'johnspass',
+      ),
+      email => 'john.smith@example.com',
+      
+      posts => [
+      {
+        title => "John's first post",
+        post  => 'Tap, tap, is this thing on?',
+      },
+      {
+        title => "John's second post",
+        post => "Anybody out there?",
+      }
+      ],
+    });
+      
+But not this:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+    
+    ## Attempt to create a post on the User ResultSet!?
+    $users_rs->create({
+      title => "John's first post",
+      post => 'Tap, tap, is this thing on?',
+      user => {
+        realname => "John Smith",
+        ...
+      }
+
+You can also do this:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+    my $fred = $users_rs->find({ username => 'fred' });
+    my $posts_rs = $schema->resultset('Post');
+    
+    $postss_rs->create({
+      title => "John's first post",
+      post => 'Tap, tap, is this thing on?',
+      user => $fred,
+    });
+
+
+Related objects are added using the relation name, and using an
+arrayref or hashrefs or a single hashref to add the data. Or you can
+link to another row using the row object (which will be inserted into
+the database, if it has not yet been).
+    
+* find_or_create / find_or_new
+
+* update_or_create
+
+
 
 [^new_result]: new_result creates a Row object that stores the data given, but does not enter it into the database. The `in_storage` method can be used to check the status of a Row object (true == is in the database).
