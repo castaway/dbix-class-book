@@ -63,7 +63,9 @@ Now that we have a ResultSet, we can start adding some data. To create one user,
       email => 'fred@bloggs.com',
     });
     
-`create` is the equivalent of calling the `new_result` method, which returns a **Row** object, and then calling the `insert` method on it, so you can also do this:
+`create` is the equivalent of calling the `new_result`[^new_result] method, which
+returns a **Row** object, and then calling the `insert` method on it,
+so you can also do this:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
@@ -312,17 +314,115 @@ database the `user_id` field stores the id of the Post-owning user
 against each Post row.
 
 Once we have a Row object representing a user, we can create related
-Post rows without having to spell out the relationship:
+Post entries without having to spell out the relationship:
 
     $fred->create_related('posts', {
         title => 'My first post!',
         post => 'A very short post',
     });
+
+This will automatically pick up the `id` value from the `$fred`
+object, and insert it into the `user_id` column in the Posts
+table. The `$fred` object must be a User row that exists in the
+database.
+    
+In true perlish spirit, this can also be written as:
+
+    $fred->posts->create({
+        title => 'My first post!',
+        post => 'A very short post',
+    });
+
+The `posts` method is created by our `has_many` relation, it will
+return a **DBIx::Class::ResultSet** object with a condition for all
+the one or more related Post entries.
+
+## Your turn, insert a set of posts from an offline edit
+
+Alice likes to write her blog posts when she's out and about without
+network, and then later import them. She's devised a local storage
+based on XML (as the CSV format doesn't get along well with the
+newlines inside her text). Write some code to import the posts from the
+example XML.
+
+This test script includes the code to parse the XML file into a Perl
+data structure.
+
+  ## TODO
+
+## Update many rows at once, getting rid of rude names
+
+We've seen how to interact with a single database row at a time, how
+to fetch and update it. We can also update a whole set of rows with a
+change that applies to all rows at once.
+
+We failed initially to exclude any words from our signup validation,
+so users have been created with rude words as real names, which will be
+displayed to other users.
+
+First we search for the users that match our disallowed list, we can
+use the `like` operator to match parts of strings, an arrayref creates
+a list of alternate conditions:
+
+(Pick your own set of unwanted words ;)
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    my @badwords = ('john', 'joe', 'joseph');
+    my $badusers_rs = $users_rs->search({
+      realname => [ map { { 'like' => "%$_%"} } @badwords ],
+    });
+    
+The result is a ResultSet which contains the condition we want, now we
+can update all the rows at once by applying `update` to the ResultSet.
+
+   $badusers_rs->update({ realname => 'XXXX' });
+
+## Deleting a row or rows, and cascading
+
+If you've been reading this entire chapter you might have guessed by
+now which method we can use to delete a row, or even multiple rows,
+from the database, its `delete`.
+
+To remove a single user from the system, find the row object and call
+the `delete` method on it:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    my $fred2 = $users_rs->find({ username => 'fred2' });
+    $fred2->delete;
+
+Poof, gone. The `$fred` object is still there, with its contents, but
+the data it represented in the database is gone. To discover whether
+an object you have represents actual data, use the `in_storage`
+method, the result will be `0` (false) when the row data is not yet or
+no longer in the database, and `1` (true) if it is.
+
+Your database will automatically remove any rows related to this one
+using foreign keys, if set up correctly. This means all posts created
+by the user *fred2* will be deleted. If the database does not remove
+them, DBIx::Class make an attempt itself, a `has_many` relation is set
+up to cascade deletes by default. To change this behaviour, set up the
+relationship with `cascade_delete` set to 0:
+
+    32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id', { cascade_delete => 0 });
+
+
+To remove a set of rows, find the resultset object that matches the
+rows to remove, and call the `delete` method on it:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    my @badwords = ('john', 'joe', 'joseph');
+    my $users_to_delete = $users_rs->search({
+      realname => [ map { { 'like' => "%$_%"} } @badwords ],
+    });
+    $users_to_delete->delete;
     
 
-
-## Update many rows at once
-
-## Deleting a row or rows
-
 ## Advanced create/update/delete
+
+[^new_result]: new_result creates a Row object that stores the data given, but does not enter it into the database. The `in_storage` method can be used to check the status of a Row object (true == is in the database).
