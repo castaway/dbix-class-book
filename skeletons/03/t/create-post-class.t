@@ -24,8 +24,8 @@ SKIP: {
         ok($schema->source('Post')->has_column($col), "Found expected Post column '$col'");
     }
     is_deeply([$schema->source('Post')->primary_columns()], ['id'], 'Found expected primary key col "id" in Post source');
-    
-    
+
+
     ## Expected relationships:
     ok($schema->source('Post')->relationship_info('user'), 'Found a relationship named "user" in the Post source');
     is($schema->source('Post')->relationship_info('user')->{attrs}{accessor}, 'single', 'User relationship in Post source is a single accessor type');
