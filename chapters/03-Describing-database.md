@@ -312,7 +312,7 @@ tables.
 This and other methods dealing with primary keys are described in
 [DBIx::Class::PK](http://search.cpan.org/perldoc?DBIx::Class::PK).
 
-#%]
+ #%]
 
 - Line 32
 
@@ -480,9 +480,9 @@ actually create and query some data from your database.
 
 
 [^modernperl]: Read Learning Perl or Modern Perl to gain a basic understanding of Perl classes and packages.
-[^schemaloader]: [DBIx::Class::Schema::Loader](http://search.cpan.org/dist/DBIx-Class-Schema-Loader]
+[^schemaloader]: [DBIx::Class::Schema::Loader](http://search.cpan.org/dist/DBIx-Class-Schema-Loader)
 [^schema]: A collection of classes used to describe a database for DBIx::Class is called a "schema", after the main class, which derives from DBIx::Class::Schema.
 [^corecomponent]: It is also possible to inherit purely from the `DBIx::Class` class, and then load the `Core` component, or each required component, as needed. Components will be explained later.
-[^dsn]: Data source name, connection info for a database, see [DBI](http://search.cpan.org/perldoc?DBI)
+[^dsn]: Data Source Name, connection info for a database, see [DBI](http://search.cpan.org/perldoc?DBI)
 
 
