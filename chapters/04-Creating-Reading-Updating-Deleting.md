@@ -497,12 +497,92 @@ You can also do this:
     });
 
 
-Related objects are added using the relation name, and using an
-arrayref or hashrefs or a single hashref to add the data. Or you can
-link to another row using the row object (which will be inserted into
-the database, if it has not yet been).
+Related objects are added using the relation name, and using a hashref
+(for foreign key relationships) or an arrayref hashrefs (the other
+side, has_many, has_one, might_have) to add the data. Or you can link
+to another row using the row object (which will be inserted into the
+database, if it has not yet been).
     
-* find_or_create / find_or_new
+* find_or_create and find_or_new
+
+We can already `find` single rows based on their unique values, and
+`create` new rows. If we try to create a new row using data that
+already matches unique values in the database, we will get an error,
+let's test:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+    my $fred = $users_rs->create({ 
+      realname => 'Fred Bloggs',
+      username => 'fred',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
+      email => 'fred@bloggs.com',
+    });
+   
+    my $fred2 = $users_rs->create({ 
+      realname => 'Fred Bloggs',
+      username => 'fred',  ## oops, username already exists.
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
+      email => 'fred@bloggs.com',
+    });
+
+Oops! For usernames, this is probably what we want to happen, instead
+of overwriting the existing user, it just fails. It would be more
+useful if it instead returned the existing user row, so that we can
+use it. For example to send the user a password reset email.
+
+`find_or_create` will start by running a `find` based on the primary
+or unique values passed in the data, if it finds a match it will
+return the matching row. If no matching row is found, it will create a
+new row. If we repeat our exercise using find_or_create:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+    my $fred = $users_rs->create({ 
+      realname => 'Fred Bloggs',
+      username => 'fred',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
+      email => 'fred@bloggs.com',
+    });
+   
+    my $fred2 = $users_rs->find_or_create({ 
+      realname => 'Fred Bloggs',
+      username => 'fred',  ## oops, username already exists.
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
+      email => 'fred@bloggs.com',
+    });
+
+    print $fred->id;
+    print $fred2->id;
+
+Notice that `$fred` and `$fred2` have the same primary key (id), they
+are representing the same row. This technique only works when you are
+passing in values for the unique or primary keys.
+
+NOTE: Using find_or_create can produce race conditions, as it does two
+separate SQL commands.
+
+To discover whether your returned Row object is a new one or an
+existing one, use `find_or_new` instead. This will return a Row object
+that is in the database, or a new, uninserted object. Check
+`in_storage` to see if the object is uninserted, then call `insert` to
+put the data in the database.
 
 * update_or_create
 
