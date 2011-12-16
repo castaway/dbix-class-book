@@ -428,10 +428,9 @@ field in your table for `archived` or similar, and setting it to a
 true value to indicate the data is no longer in use.
 
 ## Advanced create/update/delete
-## find_or_create, update_or_create, multi create
 
 Now we go a bit wild, there are a bunch of useful methods and
-techniques which simplify your code by combining various other methods
+techniques which simplify your code by combining methods
 we've already looked at in this chapter. I'll give a description and
 usage hint for each one, then we'll do some more tests.
 
@@ -586,6 +585,179 @@ put the data in the database.
 
 * update_or_create
 
+The complementary method to `find_or_create` is `update_or_create`,
+which allows us to update an existing row, or create a new one if
+there is no such row. As with `find_or_create` this is all based on
+having a primary key, or a unique set of columns.
 
+So we can replace this sort of code:
 
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+    my $fred_exists = $users_rs->find({ username => 'fred' });
+
+    if($fred_exists) {
+      $fred_exists->update({ 
+        realname => 'Fred Barney',
+        email => 'fred@barney.com',
+      });
+    } else {
+      $fred_exists->update({ 
+        realname => 'Fred Barney',
+        email => 'fred@barney.com',
+        username => 'fred',
+        password => Authen::Passphrase::SaltedDigest->new(
+           algorithm => "SHA-1", 
+           salt_random => 20,
+           passphrase => 'mypass',
+        ),
+      });
+    }
+    
+With this much shorter version:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    $users_rs->update_or_create({ 
+        realname => 'Fred Barney',
+        email => 'fred@barney.com',
+        username => 'fred',
+        password => Authen::Passphrase::SaltedDigest->new(
+           algorithm => "SHA-1", 
+           salt_random => 20,
+           passphrase => 'mypass',
+        ),
+      });
+    }
+
+Even though we provide all the data to update_or_create, the `update`
+portion will only sent an update statement to the database for the
+columns that have changed.
+
+This method will issue multiple statements, so it is subject to
+possible race conditions. Run this inside a transaction, like this:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    my $schema->txn_do( sub {
+      $users_rs->update_or_create({ 
+        realname => 'Fred Barney',
+        email => 'fred@barney.com',
+        username => 'fred',
+        password => Authen::Passphrase::SaltedDigest->new(
+           algorithm => "SHA-1", 
+           salt_random => 20,
+           passphrase => 'mypass',
+        ),
+      });
+   });
+      
+See [Chapter 5](#transactions-and-locks.html) for more on transactions.
+
+## Trying out the advanced CRUD methods
+
+Time to have a go yourself. We'll do a slightly more complicated test,
+to ensure that your code actually uses the new methods, I'm going to
+provide a new ResultSet class that records which methods you call.
+
+To pass this test you'll need to create a user with username
+**joebloggs**, and some initial `Post` entries for the user. Then
+we'll add user **alicebloggs** checking that she doesn't exist
+already, and finally we'll update **fredbloggs** and change his
+password to **freddy**.
+
+This test can be found in the file **advanced_methods.t**.
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use Test::More;
+    use Authen::Passphrase::SaltedDigest;
+    use_ok('MyBlog::Schema');
+    
+    package Test::ResultSet;
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::ResultSet';
+    __PACKAGE__->mk_group_accessors('simple' => qw/method_calls/);
+
+    sub new {
+      my ($self, @args) = @_;
+      $self->method_calls({});
+      $self->next::method(@args);
+    }
+
+    sub create {
+      my ($self, @args) = @_;
+      $self->method_calls->{create}++;
+      $self->next::method(@args);
+    }
+
+    sub find_or_create {
+      my ($self, @args) = @_;
+      $self->method_calls->{find_or_create}++;
+      $self->next::method(@args);
+    }
+
+    sub update_or_create {
+      my ($self, @args) = @_;
+      $self->method_calls->{update_or_create}++;
+      $self->next::method(@args);
+    }
+
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+    foreach my $source ($schema->sources) {
+      $schema->source($source)->resultset_class('Test::ResultSet');
+    }
+    my $users_rs = $schema->resultset('User');
+    
+    
+    ### Multi-create test, add joebloggs and his posts here:
+    ## Your code goes here!
+
+    ## Your code end
+    is($users_rs->method_calls->{create}, 1, 'Called "create" just once');
+    ok($users_rs->find({ username => 'joebloggs' }), 'joebloggs was created');
+    ok($schema->resultset('Post')->search(
+      { 'user.username' => 'joebloggs'},
+      { join => 'user' }
+    )->count >= 2, 'Got at least 2 posts by joebloggs');
+
+    ## find_or_create test, add alicebloggs here with existance check
+    ## Your code goes here:
+    
+
+    ## Your code end
+    is($users_rs->method_calls->{find_or_create}, 1, 'Called "find_or_create" just once');
+    ok($users_rs->find({ username => 'alicebloggs' }), 'alicebloggs was created');
+
+    my $fred = $users_rs->create({ 
+      realname => 'Fred Bloggs',
+      username => 'fred',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
+      email => 'fred@bloggs.com',
+    });   
+    ## update_or_create test, update fred's password here:
+    ## Your code goes here:
+    
+    ## Your code end
+    is($users_rs->method_calls->{update_or_create}, 1, 'Called "update_or_create" just once');
+    my $fred = $users_rs->find({ username => 'fredbloggs' });
+    ok($fred, 'got fredbloggs');
+    if($fred) {
+      ok($fred->password->match('freddy'), 'Updated password');
+    }
+    
+    done_testing;
+    
 [^new_result]: new_result creates a Row object that stores the data given, but does not enter it into the database. The `in_storage` method can be used to check the status of a Row object (true == is in the database).
