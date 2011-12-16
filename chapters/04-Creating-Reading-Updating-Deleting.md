@@ -11,7 +11,7 @@ Pre-requisites
 
 We will be giving code examples and comparing them to the SQL statements that they produce, you should have basic SQL knowledge to understand this chapter. The database we are using is provided as an SQL file to import into an [SQLite database](http://search.cpan.org/dist/DBD-SQLite) to get started. You should also have basic knowledge of object-oriented code and Perl classes.
 
-[Download url]() / preparation?
+[Download code](http://dbix-class.org/book/code/chapter04.zip) / preparation?
 
 Introduction
 ------------
@@ -30,7 +30,7 @@ To pass a username and password for the database, just add the strings as extra 
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
-You can also pass various [DBI](http://search.cpan.org/dist/DBI) connection parameters by passing a fourth argument containing a hashref. This is also used by DBIx::Class to set options such as the correct type of quote to use when quoting table names, eg:
+You can also pass various [DBI](http://metacpan.org/dist/DBI) connection parameters by passing a fourth argument containing a hashref. This is also used by DBIx::Class to set options such as the correct type of quote to use when quoting table names, eg:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword", { quote_char => "`'", quote_sep => '.' });
 
@@ -361,7 +361,7 @@ so users have been created with rude words as real names, which will be
 displayed to other users.
 
 First we search for the users that match our disallowed list, we can
-use the `like` operator to match parts of strings, an arrayref creates
+use the `-like` operator to match parts of strings, an arrayref creates
 a list of alternate conditions:
 
 (Pick your own set of unwanted words ;)
@@ -371,7 +371,7 @@ a list of alternate conditions:
 
     my @badwords = ('john', 'joe', 'joseph');
     my $badusers_rs = $users_rs->search({
-      realname => [ map { { 'like' => "%$_%"} } @badwords ],
+      realname => [ map { { '-like' => "%$_%"} } @badwords ],
     });
     
 The result is a ResultSet which contains the condition we want, now we
