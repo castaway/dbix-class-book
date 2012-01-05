@@ -97,9 +97,46 @@ CPAN[^CPAN] has modules such as [XML::Simple](http://metacpan.org/module/XML::Si
 
 ### Binary formats
 
-### NoSQL systems
+Binary file formats are used for compact storage and faster access. Predefined binary formats include Images, such as JPEG or PNG formats, which can be read and written using the [Imager](http://metacpan.org/module/Imager) module. Music files are also stored in binary formats, CPAN provides also modules for manipulating MP3 tags, such as [MP3::Tag](http://metacpan.org/module/MP3::Tag). 
+
+#### Pros
+
+* Well-defined existing formats, readable with a large number of programs.
+* Good for visual data, eg graphs.
+
+#### Cons
+
+* No transactions.
+* Not human-readable without more software.
+* Can design own format, but then only readable if the format is implemented into other systems.
+
+#### Useful for
+
+* Making small changes, eg metadata in images and music.
+* Visual data, eg creating graphs.
+
+#### Example
+
+    use strict;
+    use warnings;
+    
+    use Image::ExifTool qw(:Public);
+    
+    my $exift = Image::ExifTool->new();
+    $exift->ExtractInfo('a.jpg');
+    my $orig_datetime = $exitf->GetValue('DateTimeOriginal');
+    
+    $exift->SetNewValue('Artist', 'Fred');
+    $exift->WriteInfo('a.jpg');
+
 
 ### Databases
+
+Databases are systems for storing structured data, in a given layout.
+
+### NoSQL systems
+
+
 
 Why a database?
 ----------------
