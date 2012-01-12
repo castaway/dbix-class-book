@@ -709,6 +709,8 @@ This test can be found in the file **advanced_methods.t**.
       $self->next::method(@args);
     }
 
+    package main;
+    
     unlink 't/var/myblog.db';
     my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
     $schema->deploy();

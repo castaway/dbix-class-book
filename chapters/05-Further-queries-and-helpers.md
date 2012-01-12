@@ -41,17 +41,17 @@ words as their realnames, in order to remove them from the
 database. This uses the `search` method and filters the results using
 the `-like` comparison operator. 
 
-`LIKE` is an SQL keyword used to compare data gainst simple wildcard
+`LIKE` is an SQL keyword used to compare data against simple wildcard
 matching. `%` matches any number of characters, `_` matches a single
 character. LIKE is defined as being case-insensitive in the SQL
 standard, it is not implemented as such in all databases (PostgreSQL
-is one example).
+is one example, it provides the LIKE and ILIKE keywords).
 
 The two arguments to `search` are a set of conditions, and a set of
 attributes. The conditions supply the filters to apply to the data,
-the attributes add grouping, sorting and joining.
+the attributes add grouping, sorting and joining and more.
 
-The other non-obvious subtlty here is that an arrayref in the value of
+The other non-obvious subtlety here is that an arrayref in the value of
 a condition hashref produces a set of ORed conditions, whereas the
 hashref layer produces ANDed conditions.  This functionality is provided by the [SQL::Abstract module](http://metacpan.org/dist/SQL-Abstract).
 
@@ -101,10 +101,13 @@ with `-desc`.
 We get the SQL:
 
     SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users
+    FROM users me
     ORDER BY me.username DESC
 
-Now that we have rows in a known order, we can reduce the set of
+The results from our loop over the results are now sorted by username,
+no need to sort further in Perl or your templating system.
+
+Now that we have rows in a known order, we can also reduce the set of
 results to a top ten, or to a page worth of results, so that we only
 fetch data we'll actually use. There are unfortunately many different
 implementations of ways to reduce the number of rows returned by an
@@ -125,7 +128,7 @@ The first 'page' of 10 usernames to display:
 On SQLite and MySQL we get the SQL:
 
     SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users
+    FROM users me
     ORDER BY me.username DESC
     LIMIT 10
 
@@ -152,23 +155,153 @@ The second 'page' of 10 usernames to display:
 On SQLite and MySQL we get the SQL:
 
     SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users
+    FROM users me
     ORDER BY me.username DESC
     OFFSET 10
     LIMIT 10
 
-## Your turn, fetch ordered posts
+## Your turn, fetch and filter ordered posts
 
 Another good use of sorting is to sort things by datetime values to
-display them in the order that they happened. You can combine search
-conditions with attributes, and find all the posts by the user
-**fredbloggs** in the order they were created.
+display them in the order that they happened. Now combine search
+conditions with attributes, and find: 1) all the posts by the user
+**fredbloggs** in the order they were created, 2) the 2nd "page" of 2
+posts per page.
 
 This test can be found in the file **ordered_posts.t**.
 
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use Authen::Passphrase::SaltedDigest;
+    use Test::More;
+    use_ok('MyBlog::Schema');
+    
+    package Test::ResultSet;
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::ResultSet';
+    __PACKAGE__->mk_group_accessors('simple' => qw/method_calls/);
+
+    sub new {
+      my ($self, @args) = @_;
+      $self->method_calls({});
+      $self->next::method(@args);
+    }
+
+    ## Count how many times search is called
+    sub search {
+      my ($self, @args) = @_;
+      $self->method_calls->{search}++;
+      $self->next::method(@args);
+    }
+
+    package main;
+    
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+    foreach my $source ($schema->sources) {
+      $schema->source($source)->resultset_class('Test::ResultSet');
+    }
+    my $users_rs = $schema->resultset('User');
+    ## Add some initial data:
+    my @users = $users_rs->populate([
+    {
+      realname => 'Fred Bloggs',
+      username => 'fred',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'),
+      email    => 'fred@bloggs.com',
+      posts    => [
+        {  title => 'Post 4', post => 'Post 4 content' },
+        {  title => 'Post 3', post => 'Post 3 content' },
+        {  title => 'Post 2', post => 'Post 2 content' },
+        {  title => 'Post 1', post => 'Post 1 content' },
+        {  title => 'Post 5', post => 'Post 5 content' },
+        {  title => 'Post 6', post => 'Post 6 content' },
+      ],
+    },
+    
+    ### 1) Posts by fred in order
+    ## Your code goes here:
+    my $ordered_rs;
+
+
+    ## Your code end
+    is($users_rs->method_calls->{search}, 1, 'Called "create" just once');
+    is($ordered_rs->count, 6, 'Found 6 posts');
+    foreach my $i (1..6) {
+      my $row = $ordered_rs->next;
+      ok($row->isa('MyBlog::Schema::Result::Post'), 'Result isa Post object');
+      is($row->title, "Post $i", "Post $i returned in order");
+    }
+
+    ## 2) 2nd page of posts by fred, 2 per page
+    ## Your code goes here:
+    my $ordered_page_rs;
+
+    ## Your code end
+    is($users_rs->method_calls->{search}, 2, 'Called "search" a second time');
+    is($ordered_page_rs->count, 2, 'Found 
+    foreach my $i (3,4) {
+      my $row = $ordered_rs->next;
+      ok($row->isa('MyBlog::Schema::Result::Post'), 'Result isa Post object');
+      is($row->title, "Post $i", "Post $i returned in order");
+    }
+
+    done_testing;
+
     
 
-## Grouping, Filtering, Joining related data
+## Joining, Filtering and Grouping on related data
+
+We've seen how to create related rows, either singly or together with
+other data, now we can look at how to query or fetch all that data
+without making multiple trips to the database. The SQL keyword `JOIN`
+can be produced using the attribute `join` and providing it a list of
+related resultsources to join on. The joined tables can be accessed in
+the search conditions and other clauses, using the name of the
+relationship.
+
+Here is a more concrete example, we can fetch a list of our users,
+together with the number of posts that they have written.
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_post_count_rs = $schema->resultset('User')->search({
+    }, {
+      '+columns' => [ { post_count => { count => 'posts.title' }],
+      group_by   => [ $users_rs->resultsource->columns ],
+      join       => ['posts'],
+    });
+
+We get the SQL:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id)
+    FROM users me
+    LEFT JOIN posts ON me.id = posts.id
+    GROUP BY me.id, me.realname, me.username, me.password, me.email
+
+In order to use aggregate functions such as `count` in our SQL, we
+also need to provide a `GROUP BY` clause to tell the database what the
+count applies to. In this case we've grouped on all the `users`
+columns, so we want a count of unique posts.id values per user. The
+`group_by` attribute outputs the `GROUP BY` clause.
+
+NB: The SQL standard says that GROUP BY should include all the queried
+(`SELECT`ed) columns which are not being aggregated. Some databases
+enforce this, some, such as MySQL, do not by default.
+
+We used the `post_count` string to indicate that the count of posts
+for each user should be stored under that name in the results. To
+fetch this data we'll need to use the `get_column` method, as we don't
+have an accessor method under that name.
+
+    while (my $user = $users_post_count_rs->next) {
+      print "User: ", $user->username, " has ", $user->get_column('post_count'), " posts\n";
+    }
 
 ## Aggregates (sum, count)
 
