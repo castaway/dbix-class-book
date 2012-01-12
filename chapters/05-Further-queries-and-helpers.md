@@ -230,7 +230,7 @@ This test can be found in the file **ordered_posts.t**.
 
 
     ## Your code end
-    is($users_rs->method_calls->{search}, 1, 'Called "create" just once');
+    is($users_rs->method_calls->{search}, 1, 'Called "search" just once');
     is($ordered_rs->count, 6, 'Found 6 posts');
     foreach my $i (1..6) {
       my $row = $ordered_rs->next;
@@ -290,6 +290,10 @@ count applies to. In this case we've grouped on all the `users`
 columns, so we want a count of unique posts.id values per user. The
 `group_by` attribute outputs the `GROUP BY` clause.
 
+This example also features the `+columns` attribute for adding more
+`SELECT` columns in addition to the existing set from the chosen
+ResultSource.
+
 NB: The SQL standard says that GROUP BY should include all the queried
 (`SELECT`ed) columns which are not being aggregated. Some databases
 enforce this, some, such as MySQL, do not by default.
@@ -303,9 +307,133 @@ have an accessor method under that name.
       print "User: ", $user->username, " has ", $user->get_column('post_count'), " posts\n";
     }
 
-## Aggregates (sum, count)
+## Your turn, find the earliest post of each user
+
+The `sum`, `avg`, `min`, and `max` aggregate functions work just like
+the `count` function. Use this information to create a query that will
+return the earliest (minimum `created_date`) of each user in the
+database.
+
+This test can be found in the file **earliest_posts.t**.
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use Authen::Passphrase::SaltedDigest;
+    use Test::More;
+    use_ok('MyBlog::Schema');
+    
+    package Test::ResultSet;
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::ResultSet';
+    __PACKAGE__->mk_group_accessors('simple' => qw/method_calls/);
+
+    sub new {
+      my ($self, @args) = @_;
+      $self->method_calls({});
+      $self->next::method(@args);
+    }
+
+    ## Count how many times search is called
+    sub search {
+      my ($self, @args) = @_;
+      $self->method_calls->{search}++;
+      $self->next::method(@args);
+    }
+
+    package main;
+    
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+    foreach my $source ($schema->sources) {
+      $schema->source($source)->resultset_class('Test::ResultSet');
+    }
+    my $users_rs = $schema->resultset('User');
+    ## Add some initial data:
+    my @users = $users_rs->populate([
+    {
+      realname => 'Fred Bloggs',
+      username => 'fred',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'),
+      email    => 'fred@bloggs.com',
+      posts    => [
+        {  title => 'Post 1', post => 'Post 1 content', created_date => DateTime->new(year => 2012, month => 01, day => 01) },
+        {  title => 'Post 2', post => 'Post 2 content', created_date => DateTime->new(year => 2012, month => 01, day => 03) },
+      ],
+    },
+    {
+      realname => 'Joe Bloggs',
+      username => 'joe',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'sillypassword'),
+      email    => 'joe@bloggs.com',
+      posts    => [
+        {  title => 'Post 3', post => 'Post 3 content', created_date => DateTime->new(year => 2012, month => 01, day => 05) },
+        {  title => 'Post 4', post => 'Post 4 content', created_date => DateTime->new(year => 2012, month => 01, day => 07) },
+      ],
+    },
+    
+    ### Users and their earliest posts
+    ## Your code goes here:
+    my $earliest_rs;
+
+
+    ## Your code end
+    is($users_rs->method_calls->{search}, 1, 'Called "search" just once');
+    is($earliest_rs->count, 2, 'Found 2 users');
+    my $row = $earliest_rs->next;
+    ok($row->isa('MyBlog::Schema::Result::User'), 'Found user objects');
+    ok($row->username eq 'fred' && $row->created_date->ymd eq '2012-01-01'
+       || $row->username eq 'joe' && $row->created_date->ymd eq '2012-01-05',
+    'Found earliest post, 1st user');
+    $row = $earliest_rs->next;
+    ok($row->username eq 'fred' && $row->created_date->ymd eq '2012-01-01'
+       || $row->username eq 'joe' && $row->created_date->ymd eq '2012-01-05',
+    'Found earliest post, 2nd user');
+
+    done_testing;
+
+## Getting data
+
+A default `search` will fetch all the columns defined in the
+ResultSource that we're using for the search. Note that the
+ResultSource itself does not need to define all the columns in a
+database table, if you don't need to use some of them in your
+application at all, you can leave them out of the Schema.
+
+You may want to reduce the set of columns fetched from the database,
+useful if one of them is a large blob type column and you don't always
+need the data. The `columns` attribute replaces the default list with
+the supplied arrayref of column names.
+
+To fetch the user data without the password column:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_post_count_rs = $schema->resultset('User')->search({
+    }, {
+      columns     => [ qw/me.id me.realname me.username me.email/ ],
+    });
+
+To better express the "all but the password column" we can fetch the
+list of defined columns from the ResultSource, and subtract the
+column:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_rs = $schema->resultset('User');
+    my $users_post_count_rs = $users_rs->search({
+    }, {
+      columns     => [ grep { $_ ne 'password' } ($users_rs->resultsource->columns) ],
+    });
+
+
 
 ## Clever stuff: having, subselects, ...
+
 
 ## More on ResultSets and chaining
 
