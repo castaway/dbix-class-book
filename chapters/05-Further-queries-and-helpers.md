@@ -147,6 +147,10 @@ Later on in the
 we'll show how to include data from related tables, and select entire
 sets of related data in the same single query.
 
+## Your turn, fetch posts with no "post" column data
+
+  ## TODO
+
 ## Ordering and Reducing
 
 The SQL language provides a number of ways to manipulate the data
@@ -365,128 +369,6 @@ NB: The SQL standard says that GROUP BY should include all the queried
 (`SELECT`ed) columns which are not being aggregated. Some databases
 enforce this, some, such as MySQL, do not by default.
 
-## Fetching data from related tables
-
-Joins can also be used to fetch multiple tables worth of data in the
-same query, eliminating extra trips to the database. To illustrate, if
-we fetch a user object and the first page worth of posts written by
-that user, we generate the following:
-
-    my $user = $schema->resultset('User')->find({ username => 'fred' });
-    
-    # Output fred's posts:
-    my $posts = $fred->posts->search({}, { rows => 10, page => 1 });
-    while (my $post = $fred->next) {
-      print $post->title, " ", $post->post, "\n";
-    }
-
-The SQL generated:
-
-    SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users me
-    WHERE me.username = 'fred'
-    
-    SELECT me.id, me.user_id, me.created_date, me.title, me.post
-    FROM posts
-    WHERE me.user_id = 1
-    LIMIT 10
-    OFFSET 0
-
-Or worse, we fetch a page posts from different users for our
-frontpage, and then fetch the user details, we get a query per user:
-
-    my $posts_rs = $schema->resultset('Post')->search({}, { rows => 10, page => 1 });
-    
-    # Output all posts:
-    while (my $post = $posts_rs->next) {
-      print $post->user->username, " ", $post->title, " ", $post->post, "\n";
-    }
-
-The SQL generated:
-
-    SELECT me.id, me.user_id, me.created_date, me.title, me.post
-    FROM posts
-    LIMIT 10
-    OFFSET 0
-
-    SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users me
-    WHERE me.id = 1
-    
-    SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users me
-    WHERE me.id = 2
-    
-    SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users me
-    WHERE me.id = 2
-    
-    SELECT me.id, me.realname, me.username, me.password, me.email
-    FROM users me
-    WHERE me.id = 1
-
-.. and so one, one for each post, even if some are written by the same
-user. Of course we could reduce it by caching the user objects so that we
-don't refetch duplicates.
-
-We can reduce this set of queries (in either case), by using the
-`prefetch` attribute to our initial query, which asks it to include
-all the listed relations into the query.
-
-Note, this currently does not work with multiple `has_many` type
-relations at the same level, as decoding the resulting data back into
-objects is tricky.
-
-So for users and the first page of posts:
-
-    my $user = $schema->resultset('User')->search(
-    { 
-      username => 'fred',
-    },
-    {
-      prefetch => ['posts'],
-      rows     => 10,
-      page     => 1,
-    });
-    
-    # Output fred's posts:
-    my $posts = $fred->posts->search({}, { rows => 10, page => 1 });
-    while (my $post = $fred->next) {
-      print $post->title, " ", $post->post, "\n";
-    }
-
-Resulting in:
-
-    SELECT me.id, me.realname, me.username, me.password, me.email, posts.id, posts.user_id, posts.created_date, posts.title, posts.post
-    FROM users me
-    LEFT JOIN posts ON me.id = posts.user_id
-    WHERE me.username = 'fred'
-    LIMIT 10
-    OFFSET 0
-
-And for the page of posts with users:
-
-    my $posts_rs = $schema->resultset('Post')->search(
-    {},
-    { 
-      prefetch => [ 'user' ],
-      rows => 10, 
-      page => 1,
-    });
-    
-    # Output all posts:
-    while (my $post = $posts_rs->next) {
-      print $post->user->username, " ", $post->title, " ", $post->post, "\n";
-    }
-
-The SQL generated:
-
-    SELECT me.id, me.user_id, me.created_date, me.title, me.post, user.id, user.realname, user.username, user.password, user.email
-    FROM posts
-    JOIN user ON me.id = posts.user_id
-    LIMIT 10
-    OFFSET 0
-
 
 ## Your turn, find the earliest post of each user
 
@@ -577,10 +459,127 @@ This test can be found in the file **earliest_posts.t**.
 
     done_testing;
 
+## Fetching data from related tables
 
+Joins can also be used to fetch multiple tables worth of data in the
+same query, eliminating extra trips to the database. To illustrate, if
+we fetch a user object and the first page worth of posts written by
+that user, we generate the following:
+
+    my $user = $schema->resultset('User')->find({ username => 'fred' });
+    
+    # Output fred's posts:
+    my $posts = $fred->posts->search({}, { rows => 10, page => 1 });
+    while (my $post = $fred->next) {
+      print $post->title, " ", $post->post, "\n";
+    }
+
+The SQL generated:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.username = 'fred'
+    
+    SELECT me.id, me.user_id, me.created_date, me.title, me.post
+    FROM posts
+    WHERE me.user_id = 1
+    LIMIT 10
+
+Or worse, we fetch a page posts from different users for our
+frontpage, and then fetch the user details, we get a query per user:
+
+    my $posts_rs = $schema->resultset('Post')->search({}, { rows => 10, page => 1 });
+    
+    # Output all posts:
+    while (my $post = $posts_rs->next) {
+      print $post->user->username, " ", $post->title, " ", $post->post, "\n";
+    }
+
+The SQL generated:
+
+    SELECT me.id, me.user_id, me.created_date, me.title, me.post
+    FROM posts
+    LIMIT 10
+
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 1
+    
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 2
+    
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 2
+    
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 1
+
+.. and so one, one for each post, even if some are written by the same
+user. Of course we could reduce it by caching the user objects so that we
+don't refetch duplicates.
+
+We can reduce this set of queries (in either case), by using the
+`prefetch` attribute to our initial query, which asks it to include
+all the listed relations into the query.
+
+Note, this currently does not work with multiple `has_many` type
+relations at the same level, as decoding the resulting data back into
+objects is tricky.
+
+So for users and the first page of posts:
+
+    my $user = $schema->resultset('User')->search(
+    { 
+      username => 'fred',
+    },
+    {
+      prefetch => ['posts'],
+      rows     => 10,
+      page     => 1,
+    });
+    
+    # Output fred's posts:
+    my $posts = $fred->posts->search({}, { rows => 10, page => 1 });
+    while (my $post = $fred->next) {
+      print $post->title, " ", $post->post, "\n";
+    }
+
+Resulting in:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, posts.id, posts.user_id, posts.created_date, posts.title, posts.post
+    FROM users me
+    LEFT JOIN posts ON me.id = posts.user_id
+    WHERE me.username = 'fred'
+    LIMIT 10
+
+And for the page of posts with users:
+
+    my $posts_rs = $schema->resultset('Post')->search(
+    {},
+    { 
+      prefetch => [ 'user' ],
+      rows => 10, 
+      page => 1,
+    });
+    
+    # Output all posts:
+    while (my $post = $posts_rs->next) {
+      print $post->user->username, " ", $post->title, " ", $post->post, "\n";
+    }
+
+The SQL generated:
+
+    SELECT me.id, me.user_id, me.created_date, me.title, me.post, user.id, user.realname, user.username, user.password, user.email
+    FROM posts
+    JOIN user ON me.id = posts.user_id
+    LIMIT 10
 
 ## Clever stuff: having, subselects, ...
 
+There are several more commonly used SQL clauses which we haven't mentioned yet
 
 ## More on ResultSets and chaining
 
@@ -590,7 +589,7 @@ passed around and used to collect conditions and attributes, before
 running the query.
 
 Suppose we wanted to later check for unwanted words in realnames of
-users from ceratin email domains, we can extend the condition later by
+users from certain email domains, we can extend the condition later by
 calling `search` again on the returned ResultSet.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
