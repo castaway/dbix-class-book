@@ -30,7 +30,7 @@ database, change and delete the data. Now we're going to use the
 database to prefilter, sort, slice and dice the data for us, as this
 is more efficient than fetching the data a piece at a time and doing
 the work in Perl. DBIx::Class allows you to use Perl data structures
-and methods to describe the intented query, and then optimises the
+and methods to describe the intended query, and then optimises the
 result into SQL. The main method we will need is `search`, with
 various conditions and attributes.
 
@@ -75,6 +75,77 @@ ResultSet using the `next` method.
     while(my $user = $users_rs->next) {
       print $user->realname;
     }
+
+## Choosing data to fetch
+
+A default `search` will fetch all the columns defined in the
+ResultSource that we're using for the search. Note that the
+ResultSource itself does not need to define all the columns in a
+database table, if you don't need to use some of them in your
+application at all, you can leave them out of the Schema.
+
+You may want to reduce the set of columns fetched from the database,
+useful if one of them is a large blob type column and you don't always
+need the data. The `columns` attribute replaces the default list with
+the supplied arrayref of column names.
+
+To fetch the user data without the password column:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_minus_passwd_rs = $schema->resultset('User')->search({
+    }, {
+      columns     => [ qw/me.id me.realname me.username me.email/ ],
+    });
+
+To better express the "all but the password column" we can fetch the
+list of defined columns from the ResultSource, and subtract the
+column:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_rs = $schema->resultset('User');
+    my $users_minus_passwd_rs = $users_rs->search({
+    }, {
+      columns     => [ grep { $_ ne 'password' } ($users_rs->resultsource->columns) ],
+    });
+    
+To get the SQL:
+
+    SELECT me.id, me.realname, me.username, me.email
+    FROM users me
+
+The SQL `SELECT` clause can contain many other things, for example
+functions such as `length`. To output a function and its arguments,
+use a hashref in the `columns` attribute, we can also add new columns
+to the default set using the `+columns` attribute.
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_rs = $schema->resultset('User');
+    my $users_plus_emaillen_rs = $users_rs->search({
+    }, {
+      '+columns'     => [ { 'userlen' => { length => 'username' } }],
+    });
+
+Which produces the SQL:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, length(email)
+    FROM users me
+
+The outer level of hashref has the new internal column name as its
+key. This gives you a way to access to resulting value. Note that
+we'll need to use the `get_column` method to fetch the data as it does
+not create a new accessor method on the resulting Row object.
+
+    while (my $user = $users_plus_emaillen_rs->next) {
+      print "User: ", $user->username, " has email length ", $user->get_column('emaillen'), " \n";
+    }
+
+Later on in the
+[section on joining](#joining-filtering-and-grouping-on-related-data)
+we'll show how to include data from related tables, and select entire
+sets of related data in the same single query.
 
 ## Ordering and Reducing
 
@@ -290,22 +361,132 @@ count applies to. In this case we've grouped on all the `users`
 columns, so we want a count of unique posts.id values per user. The
 `group_by` attribute outputs the `GROUP BY` clause.
 
-This example also features the `+columns` attribute for adding more
-`SELECT` columns in addition to the existing set from the chosen
-ResultSource.
-
 NB: The SQL standard says that GROUP BY should include all the queried
 (`SELECT`ed) columns which are not being aggregated. Some databases
 enforce this, some, such as MySQL, do not by default.
 
-We used the `post_count` string to indicate that the count of posts
-for each user should be stored under that name in the results. To
-fetch this data we'll need to use the `get_column` method, as we don't
-have an accessor method under that name.
+## Fetching data from related tables
 
-    while (my $user = $users_post_count_rs->next) {
-      print "User: ", $user->username, " has ", $user->get_column('post_count'), " posts\n";
+Joins can also be used to fetch multiple tables worth of data in the
+same query, eliminating extra trips to the database. To illustrate, if
+we fetch a user object and the first page worth of posts written by
+that user, we generate the following:
+
+    my $user = $schema->resultset('User')->find({ username => 'fred' });
+    
+    # Output fred's posts:
+    my $posts = $fred->posts->search({}, { rows => 10, page => 1 });
+    while (my $post = $fred->next) {
+      print $post->title, " ", $post->post, "\n";
     }
+
+The SQL generated:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.username = 'fred'
+    
+    SELECT me.id, me.user_id, me.created_date, me.title, me.post
+    FROM posts
+    WHERE me.user_id = 1
+    LIMIT 10
+    OFFSET 0
+
+Or worse, we fetch a page posts from different users for our
+frontpage, and then fetch the user details, we get a query per user:
+
+    my $posts_rs = $schema->resultset('Post')->search({}, { rows => 10, page => 1 });
+    
+    # Output all posts:
+    while (my $post = $posts_rs->next) {
+      print $post->user->username, " ", $post->title, " ", $post->post, "\n";
+    }
+
+The SQL generated:
+
+    SELECT me.id, me.user_id, me.created_date, me.title, me.post
+    FROM posts
+    LIMIT 10
+    OFFSET 0
+
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 1
+    
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 2
+    
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 2
+    
+    SELECT me.id, me.realname, me.username, me.password, me.email
+    FROM users me
+    WHERE me.id = 1
+
+.. and so one, one for each post, even if some are written by the same
+user. Of course we could reduce it by caching the user objects so that we
+don't refetch duplicates.
+
+We can reduce this set of queries (in either case), by using the
+`prefetch` attribute to our initial query, which asks it to include
+all the listed relations into the query.
+
+Note, this currently does not work with multiple `has_many` type
+relations at the same level, as decoding the resulting data back into
+objects is tricky.
+
+So for users and the first page of posts:
+
+    my $user = $schema->resultset('User')->search(
+    { 
+      username => 'fred',
+    },
+    {
+      prefetch => ['posts'],
+      rows     => 10,
+      page     => 1,
+    });
+    
+    # Output fred's posts:
+    my $posts = $fred->posts->search({}, { rows => 10, page => 1 });
+    while (my $post = $fred->next) {
+      print $post->title, " ", $post->post, "\n";
+    }
+
+Resulting in:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, posts.id, posts.user_id, posts.created_date, posts.title, posts.post
+    FROM users me
+    LEFT JOIN posts ON me.id = posts.user_id
+    WHERE me.username = 'fred'
+    LIMIT 10
+    OFFSET 0
+
+And for the page of posts with users:
+
+    my $posts_rs = $schema->resultset('Post')->search(
+    {},
+    { 
+      prefetch => [ 'user' ],
+      rows => 10, 
+      page => 1,
+    });
+    
+    # Output all posts:
+    while (my $post = $posts_rs->next) {
+      print $post->user->username, " ", $post->title, " ", $post->post, "\n";
+    }
+
+The SQL generated:
+
+    SELECT me.id, me.user_id, me.created_date, me.title, me.post, user.id, user.realname, user.username, user.password, user.email
+    FROM posts
+    JOIN user ON me.id = posts.user_id
+    LIMIT 10
+    OFFSET 0
+
 
 ## Your turn, find the earliest post of each user
 
@@ -395,40 +576,6 @@ This test can be found in the file **earliest_posts.t**.
     'Found earliest post, 2nd user');
 
     done_testing;
-
-## Getting data
-
-A default `search` will fetch all the columns defined in the
-ResultSource that we're using for the search. Note that the
-ResultSource itself does not need to define all the columns in a
-database table, if you don't need to use some of them in your
-application at all, you can leave them out of the Schema.
-
-You may want to reduce the set of columns fetched from the database,
-useful if one of them is a large blob type column and you don't always
-need the data. The `columns` attribute replaces the default list with
-the supplied arrayref of column names.
-
-To fetch the user data without the password column:
-
-    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
-
-    my $users_post_count_rs = $schema->resultset('User')->search({
-    }, {
-      columns     => [ qw/me.id me.realname me.username me.email/ ],
-    });
-
-To better express the "all but the password column" we can fetch the
-list of defined columns from the ResultSource, and subtract the
-column:
-
-    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
-
-    my $users_rs = $schema->resultset('User');
-    my $users_post_count_rs = $users_rs->search({
-    }, {
-      columns     => [ grep { $_ ne 'password' } ($users_rs->resultsource->columns) ],
-    });
 
 
 
