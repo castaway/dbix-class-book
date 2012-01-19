@@ -330,7 +330,7 @@ This test can be found in the file **ordered_posts.t**.
 
     
 
-## Joining, Filtering and Grouping on related data
+## Joining, Aggregating and Grouping on related data
 
 We've seen how to create related rows, either singly or together with
 other data, now we can look at how to query or fetch all that data
@@ -347,7 +347,7 @@ together with the number of posts that they have written.
 
     my $users_post_count_rs = $schema->resultset('User')->search({
     }, {
-      '+columns' => [ { post_count => { count => 'posts.title' }],
+      '+columns' => [ { post_count => { count => 'posts.title' } }],
       group_by   => [ $users_rs->resultsource->columns ],
       join       => ['posts'],
     });
@@ -458,6 +458,77 @@ This test can be found in the file **earliest_posts.t**.
     'Found earliest post, 2nd user');
 
     done_testing;
+
+## Filtering data after grouping
+
+With [group_by](#joining-aggregating-and-grouping-on-related-data) and
+various aggregation functions we can sum or count data across groups
+of rows, if we want to then filter the results again, for example to
+get only the groups whose COUNT is greater than a certain value, we
+need to use the SQL keyword `HAVING`. To differentiate, the `WHERE`
+clause applies before the grouping, and the `HAVING` clause applies
+afterwards.
+
+So to return all users that have at least one post:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_with_as_least_one_post_rs = $schema->resultset('User')->search({
+    }, {
+      '+columns' => [ { post_count => { count => 'posts.title' },
+                                        -as   => 'post_count',
+                      }
+                    ],
+      group_by   => [ $users_rs->resultsource->columns ],
+      join       => ['posts'],
+      having     => [ { 'post_count' => { '>=' => 1 } } ],
+    });
+
+Note that we've added the `-as` argument to our `post_count` column,
+this is required to output the SQL `AS` keyword, which is used to
+alias the result of a function call or calculation. The alias can then
+be used in subsequent clauses, such as the `HAVING` clause.
+
+We get the SQL:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id) as post_count
+    FROM users me
+    LEFT JOIN posts ON me.id = posts.id
+    GROUP BY me.id, me.realname, me.username, me.password, me.email
+    HAVING post_count <= 1
+
+WARNING: If you get an error from your database here, and its Oracle
+or MS SQL Server, then you will need to use different code. As these
+databases do not parse/run the SQL in order, the `post_count` alias is
+still unknown while parsing the `HAVING` clause. We need to repeat the
+condition instead:
+
+    my $users_with_as_least_one_post_rs = $schema->resultset('User')->search({
+    }, {
+      '+columns' => [ { post_count => { count => 'posts.title' },
+                      }
+                    ],
+      group_by   => [ $users_rs->resultsource->columns ],
+      join       => ['posts'],
+      having     => \[ 'count(posts.id) >= ?', [ {} => 1 ] ],
+    });
+
+[%# This probably needs its own section somewhere.. ! %]
+This is how to write literal SQL chunks in DBIx::Class. While DBIC is
+quite clever, there will always be a need to support literal SQL
+pieces for database specific functionality or similar. The
+arrayref-reference contains the SQL string with `?` characters for
+placeholders, and an arrayref for each of the values.
+
+Which outputs:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id)
+    FROM users me
+    LEFT JOIN posts ON me.id = posts.id
+    GROUP BY me.id, me.realname, me.username, me.password, me.email
+    HAVING count(posts.id) >= ?
+    
+Which is executed with the placeholders set to: (1)
 
 ## Fetching data from related tables
 
