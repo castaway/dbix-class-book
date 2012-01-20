@@ -437,7 +437,7 @@ This test can be found in the file **earliest_posts.t**.
         {  title => 'Post 3', post => 'Post 3 content', created_date => DateTime->new(year => 2012, month => 01, day => 05) },
         {  title => 'Post 4', post => 'Post 4 content', created_date => DateTime->new(year => 2012, month => 01, day => 07) },
       ],
-    },
+    });
     
     ### Users and their earliest posts
     ## Your code goes here:
@@ -475,7 +475,7 @@ So to return all users that have at least one post:
 
     my $users_with_as_least_one_post_rs = $schema->resultset('User')->search({
     }, {
-      '+columns' => [ { post_count => { count => 'posts.title' },
+      '+columns' => [ { post_count => { count => 'posts.title',
                                         -as   => 'post_count',
                       }
                     ],
@@ -648,24 +648,25 @@ The SQL generated:
     JOIN user ON me.id = posts.user_id
     LIMIT 10
 
-## Clever stuff: having, subselects, ...
 
-There are several more commonly used SQL clauses which we haven't mentioned yet
-
-## More on ResultSets and chaining
+## Extending search conditions and ResultSet chaining
 
 As mentioned in Chapter 4, ResultSets are used to store the conditions
 to create database queries. This means that a ResultSet object can be
 passed around and used to collect conditions and attributes, before
 running the query.
 
-Suppose we wanted to later check for unwanted words in realnames of
-users from certain email domains, we can extend the condition later by
-calling `search` again on the returned ResultSet.
+Suppose we're building a list of unwanted words to search for in
+realnames of users, and then later filter the search to only certain
+email domains, we can add to the condition later by calling `search`
+again on the returned ResultSet. This returns a new ResultSet
+containing the merged conditions.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
 
+    ## Add initial conditions ... 
+    
     my @badwords = ('john', 'joe', 'joseph');
     my $badusers_rs = $users_rs->search({
       realname => [ map { { 'like' => "%$_%"} } @badwords ],
@@ -684,9 +685,9 @@ Our query will now be:
     WHERE me.realname LIKE '%john%' OR me.realname LIKE '%joe%' OR me.realname LIKE '%joseph%' AND email LIKE '%@example.com';
 
 
-`search` does not change the ResultSet it was called on, just returns
-a new ResultSet object with the conditions merged into the existing
-set.
+To re-iterate, `search` does not change the ResultSet it was called
+on, just returns a new ResultSet object with the conditions merged
+into the existing set.
 
 Conditions and attributes are either merged or replaced according to
 these rules.
@@ -697,11 +698,119 @@ these rules.
 
 * `having` attribute - merged using AND.
 
-* `join`, `prefetch`, `+select`, `+as` are merged into existing attributes.
+* `join`, `prefetch`, `+columns`, `+select`, `+as` are merged into existing attributes.
 
 All other attributes replaced with the newly supplied values.
 
-## Helpers on CPAN (union ... )
+You can always call `search` on an existing ResultSet to add or change
+conditions or attributes, to extend the query.
+
+## Preserving original conditions (subselects)
+
+Extending queries can sometimes have unexpected results, suppose ... # need an example for this!
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    $users_rs->search({ some conds })->as_subselect_rs->search({ more filtering });
+
+## Data set manipulation (and ResultSet extension)
+
+The SQL language has a whole host of
+[set operations](http://en.wikipedia.org/wiki/Set_operations_(SQL)) to
+help manipulate results and make the database software do as much work
+as possible for you. You may of course prefer to do these in Perl, its
+up to you. DBIx::Class doesn't currently simplify the use of these
+directly, however there is a module on CPAN which supplies them.
+
+To use the `UNION`, `INTERSECT` and `EXCEPT` keywords, install the
+[DBIx::Class::Helpers module from CPAN](http://metacpan.org/module/DBIx::Class::Helpers).
+
+Using these constructs we can glue together the results of arbitrary
+resultsets, for example of if we want to allow users to search for
+either usernames or post titles (or contents), we can UNION together
+several resultsets. Take care to select the same number of columns in
+the resultsets.
+
+To add new methods to our ResultSet classes, we will need to create
+our own ResultSet subclass. This will simply inherit from the existing
+default DBIx::Class::ResultSet class, and add the Helper
+component. Put this in the `MyBlog/Schema/ResultSet/User.pm` file:
+
+    package MyBlog::Schema::ResultSet::User;
+    
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::ResultSet';
+
+    __PACKAGE__->load_components(qw/Helper::ResultSet::SetOperations/);
+    
+    1;
+    
+Now we can use the Helper methods provided, first, create some
+resultsets to query each of the fields we wish to search on:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $post_rs = $schema->resultset('Post');
+    my $users_rs = $schema->resultset('User');
+    
+    my $title_rs = $post_rs->search(
+        {},
+        {
+            'columns' => ['id', { search => \'title as search'} ,{ tablename => \'"Post" as tablename'}], 
+        }
+        );
+
+    my $content_rs = $post_rs->search(
+        {},
+        {
+            'columns' => ['id', { search => \'post as search'}, { tablename => \'"Post" as tablename'} ],
+        }
+        );
+
+    my $username_rs = $users_rs->search(
+        {},
+        {
+            'columns' => [ 'id', { search => \'username as search'} , { tablename => \'"User" as tablename'}],
+        }
+        );
+
+    my $realname_rs= $users_rs->search(
+        {},
+        {
+            'columns' => [ 'id', { search => \'realname as search'}, { tablename => \'"User" as tablename'}],
+        }
+        );
+
+
+Then create the `union` and the actual search query:
+
+    my $search_term = 'fred';
+    my $datasearch_rs = $username_rs->union($realname_rs, $title_rs, $content_rs)->search({
+      'search' => { '-like' => $search_term },
+    });
+
+To actually get the results we need to introduce another new
+technique, replacing the class that is used to create the Result
+objects. In normal use this creates an instance of of your Result
+class (which derives from DBIx::Class::Row). Using the Result class
+for `User` here will not work as the names of our columns don't match
+the columns defined in the class. DBIx::Class installs one alternative
+Result class generator for you,
+`DBIx::Class::ResultClass::HashRefInflator`, which causes the methods
+`next`, `find` and `all` to return a hashref of the results instead of
+an object. We add it to the ResultSet using `result_class`.
+
+    $datasearch_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
+    
+    while( my $match = $datasearch_rs->next) {
+      ## Enough data to create a link to the user/post of the match
+      
+      print "Found: $match->{source}, $match->{id}, value: $match->{search}\n";
+    }
+
+
 
 ## Querying/defining views, stored procedures
 
