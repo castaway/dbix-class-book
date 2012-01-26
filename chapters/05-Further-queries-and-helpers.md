@@ -784,10 +784,21 @@ resultsets to query each of the fields we wish to search on:
         );
 
 
+[%# may be able to remove this para at somepoint.. %] To ensure that
+the resultset results will be consistant, the `union` code checks that
+the `result_class` of its arguments are all the same. (See below) As
+we're using different sources to `union` we set the result_class here:
+
+    $title_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
+    $content_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
+    $username_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
+    $realname_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
+
+
 Then create the `union` and the actual search query:
 
     my $search_term = 'fred';
-    my $datasearch_rs = $username_rs->union($realname_rs, $title_rs, $content_rs)->search({
+    my $datasearch_rs = $username_rs->union([$realname_rs, $title_rs, $content_rs])->search({
       'search' => { '-like' => $search_term },
     });
 
@@ -810,7 +821,29 @@ an object. We add it to the ResultSet using `result_class`.
       print "Found: $match->{source}, $match->{id}, value: $match->{search}\n";
     }
 
+The SQL we get looks like this:
 
+    SELECT me.id, me.search, me.tablename 
+    FROM (
+      SELECT me.id, username as search, "User" as tablename 
+      FROM users me 
+      UNION 
+      SELECT me.id, realname as search, "User" as tablename 
+      FROM users me 
+      UNION 
+      SELECT me.id, title as search, "Post" as tablename 
+      FROM posts me 
+      UNION 
+      SELECT me.id, post as search, "Post" as tablename 
+      FROM posts me) me 
+    WHERE ( search LIKE ? )
+
+Which is executed with the placeholders set to: ('fred')
+
+`intersect` and `except` can be used in exactly the same way, and
+produce respecyively a set of results which exists in all the querys
+given, and a set of results that contains all rows in the first query,
+without any that appear in the subsequent queries.
 
 ## Querying/defining views, stored procedures
 

@@ -73,7 +73,7 @@ $content_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
 $username_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
 $realname_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
 
-my $datasearch_rs = $username_rs->union($realname_rs, $title_rs, $content_rs)->search({
+my $datasearch_rs = $username_rs->union([$realname_rs, $title_rs, $content_rs])->search({
     'search' => { '-like' => $search_term },
 });
 
