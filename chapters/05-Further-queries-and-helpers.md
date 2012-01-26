@@ -437,7 +437,8 @@ This test can be found in the file **earliest_posts.t**.
         {  title => 'Post 3', post => 'Post 3 content', created_date => DateTime->new(year => 2012, month => 01, day => 05) },
         {  title => 'Post 4', post => 'Post 4 content', created_date => DateTime->new(year => 2012, month => 01, day => 07) },
       ],
-    });
+    }
+    ]);
     
     ### Users and their earliest posts
     ## Your code goes here:
@@ -841,11 +842,356 @@ The SQL we get looks like this:
 Which is executed with the placeholders set to: ('fred')
 
 `intersect` and `except` can be used in exactly the same way, and
-produce respecyively a set of results which exists in all the querys
+produce respectively a set of results which exists in all the querys
 given, and a set of results that contains all rows in the first query,
 without any that appear in the subsequent queries.
 
-## Querying/defining views, stored procedures
+## Your turn, find all user except those with no posts
 
-## Transactions, locks etc
+This is an alternative way to get the same results we had with
+`group_by` and `having`. First create a query to fetch all the users,
+then use the `except` method provided by DBIx::Class::Helpers to
+subtract the users with no posts.
+
+You can find this test in the file **users_with_posts.t**.
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use Authen::Passphrase::SaltedDigest;
+    use Test::More;
+    use_ok('MyBlog::Schema');
+    
+    package Test::ResultSet;
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::Helper::ResultSet';
+    __PACKAGE__->mk_group_accessors('simple' => qw/method_calls/);
+
+    sub new {
+      my ($self, @args) = @_;
+      $self->method_calls({});
+      $self->next::method(@args);
+    }
+
+    ## Count how many times except is called
+    sub except {
+      my ($self, @args) = @_;
+      $self->method_calls->{except}++;
+      $self->next::method(@args);
+    }
+
+    package main;
+    
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+    foreach my $source ($schema->sources) {
+      $schema->source($source)->resultset_class('Test::ResultSet');
+    }
+    my $users_rs = $schema->resultset('User');
+    ## Add some initial data:
+    my @users = $users_rs->populate([
+    {
+      realname => 'Fred Bloggs',
+      username => 'fred',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'),
+      email    => 'fred@bloggs.com',
+      posts    => [
+        {  title => 'Post 1', post => 'Post 1 content', created_date => DateTime->new(year => 2012, month => 01, day => 01) },
+        {  title => 'Post 2', post => 'Post 2 content', created_date => DateTime->new(year => 2012, month => 01, day => 03) },
+      ],
+    },
+    {
+      realname => 'Joe Bloggs',
+      username => 'joe',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'sillypassword'),
+      email    => 'joe@bloggs.com',
+    },
+    {
+      realname => 'Jane Bloggs',
+      username => 'jane',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'sillypassword'),
+      email    => 'jane@bloggs.com',
+      posts    => [
+        {  title => 'Post 3', post => 'Post 3 content', created_date => DateTime->new(year => 2012, month => 01, day => 05) },
+        {  title => 'Post 4', post => 'Post 4 content', created_date => DateTime->new(year => 2012, month => 01, day => 07) },
+      ],
+    }
+    ]);
+    
+    ### Users and their earliest posts
+    ## Your code goes here:
+    my $users_with_posts_rs;
+
+
+    ## Your code end
+    is($users_rs->method_calls->{except}, 1, 'Called "except" just once');
+    is($$users_with_posts_rs->count, 2, 'Found 2 users');
+    my $row = $$users_with_posts_rs->next;
+    ok($row->isa('MyBlog::Schema::Result::User'), 'Found user objects');
+    ok($row->username eq 'fred' || $row->username eq 'jane', 
+      'Found users with posts, 1st user');
+    $row = $earliest_rs->next;
+    ok($row->username eq 'fred' || $row->username eq 'jane',
+      'Found users with posts, 2nd user');
+
+    done_testing;
+
+
+## Real or virtual Views and stored procedures
+
+SQL database systems provide two ways to store predefined queries in
+the database. Views consist of a stored query, which can be used just
+like a table in `SELECT` statements. The underlying query is run when
+needed to fetch the data. 
+
+As views are used similarly to tables, you can just create a normal
+Result class, as described in [Chapter 3](03-describing-database),
+using the name of the view as the `table` argument.
+
+WARNING: Although this may make the view look like a table, it may not
+allow you to run any of the methods to remove or alter the data, such
+as `update` and `delete`. Whether these work will depend on the
+structure of the query, and the database system you are using.
+
+DBIx::Class also provides a specialised `View` class which can store
+the actual query behind the view, and thus allow it to be deployed
+(output a CREATE VIEW statement), along with all the tables. Instead
+of deploying the view or representing an actual view defined in the
+database, it can also define a virtual view, a query just stored in
+the DBIx::Class schema.
+
+To create a View class to represent posts together with the username
+of the user that wrote them, we can create the PostsAndUser class:
+
+    1. package MyBlog::Schema::Result::PostsAndUser;
+    
+    2. use strict;
+    3. use warnings;
+    
+    4. use base qw/DBIx::Class::Core/;
+ 
+    5. __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
+ 
+    6. __PACKAGE__->table('posts_and_user');
+    7. __PACKAGE__->result_source_instance->is_virtual(1);
+    9. __PACKAGE__->result_source_instance->view_definition(
+    10.  "SELECT id, title, post, created_date, username, realname FROM posts JOIN users ON posts.user_id = users.id WHERE user.id = ?"
+    11. );
+
+    12. __PACKAGE__->add_columns(
+    13.   'id' => {
+    14.   data_type => 'integer',
+    16. },
+    17.   'title' => {
+    18.   data_type => 'varchar',
+    19.   size => 255,
+    20. },
+    21.  'post => {
+    22.   data_type => 'text',
+    23. },
+    24.  'created_date' => {
+    25.  data_type => 'datetime',
+    26. },
+    27.  'username' => {
+    28.   data_type => 'varchar',
+    29.   size => 255,
+    30. },
+    31.  'realname' => {
+    32.  data_type => 'varchar',
+    33.  size => 255,
+    34. },   
+    35. );
+
+The main differences to the plain Table Result class are:
+
+    5. __PACKAGE__->table_class('DBIx::Class::ResultSource::View');
+
+Line 5 sets the type of the Result class to be a View instead of the
+default Table class.
+
+    7. __PACKAGE__->result_source_instance->is_virtual(1);
+
+Line 7 uses the `is_virtual` method to define this as a DBIx::Class
+level view, not a view in the database. Note that only virtual views
+can contain placeholders.
+
+    9. __PACKAGE__->result_source_instance->view_definition(
+    10.  "SELECT id, title, post, created_date, username, realname FROM posts JOIN users ON posts.user_id = users.id WHERE users.username = ?"
+    11. );
+
+Lines 9 to 11 actually set the query used for the view. 
+
+We can use the view just like a normal query, providing the value for
+the placeholder parameter in the `bind` attribute:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $posts_and_users_rs = $schema->resultset('PostsAndUser');
+    my $freds_posts = $posts_and_users_rs->search({}, { bind => ['fred'] });
+
+This would run the SQL:
+
+    SELECT me.id, me.title, me.post, me.created_date, me.username, me.realname
+    FROM (
+      SELECT id, title, post, created_date, username, realname
+      FROM posts
+      JOIN users ON posts.user_id = users.id
+      WHERE
+      users.username = ?
+   )
+
+Using the placeholders: ( 'fred' )
+
+Stored procedures are SQL code stored in the database that can run
+quite complex programs to create, update and otherwise manipulate
+data. They can return either single values, or a set of rows.
+
+DBIx::Class doesn't provide any specific support for stored
+procedures, however they may be used as the content of a virtual view
+(returning a set), or as a function (returning single values).
+
+## Preventing race conditions with transactions and locking
+
+When accessing the database using multiple processes or clients, such
+as when writing a multi-user application or website, creates the
+possibility of race conditions. In our MyBlog schema, these can happen
+if, for example, two users attempt to create a new user with the same
+username, at the same time.
+
+    ## First user:
+    my $user = $users_rs->find_or_new({
+       username => 'fredbloggs',
+       realname => 'Fred Bloggs',
+       password => 'something daft',
+       email    => 'fred@bloggs.com',
+
+    });
+    if(!$user->in_storage) { # New user
+      $user->insert;
+    } else {
+      warn "fredblogs already exists!"
+    }
+    
+    ## Second user:
+    my $user = $users_rs->find_or_new({
+       username => 'fredbloggs',
+       realname => 'Fred Bloggs',
+       password => 'summat daft',
+       email    => 'fred@bloggs.co.uk',
+    });
+    if(!$user->in_storage) { # New user
+      $user->insert;
+    } else {
+      warn "fredblogs already exists!"
+    }
+    
+
+On the surface this might seem straight forward, but internally we are
+running this set of queries:
+
+    ## First user:
+    SELECT id, username, realname, password, email 
+    FROM users 
+    WHERE username = 'fredbloggs';
+
+    -- Do some work
+    
+    INSERT INTO users
+    (username, realname, password, email)
+    VALUES('fredbloggs', 'Fred Bloggs', 'something daft', 'fred@bloggs.com');
+    
+    ## Second user:
+    SELECT id, username, realname, password, email 
+    FROM users 
+    WHERE username = 'fredbloggs';
+    
+    -- Do some work
+    
+    INSERT INTO users
+    (username, realname, password, email)
+    VALUES('fredbloggs', 'Fred Bloggs', 'summat daft', 'fred@bloggs.co.uk');
+
+We obviously intend for these to run first user, then second user, and
+for the second one to get an error that a user named 'fredbloggs'
+already exists. What may happen is that the `SELECT` statements run
+first and both return a result of 'no such user yet'. To ensure the
+statements for each user creation run together, we need to start a
+`transaction`, using the `txn_do` method:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    $schema->txn_do( sub {
+      my $user = $users_rs->find_or_new({
+         username => 'fredbloggs',
+         realname => 'Fred Bloggs',
+         password => 'something daft',
+         email    => 'fred@bloggs.com',
+      });
+
+      # ... Do some work
+    
+      if(!$user->in_storage) { # New user
+        $user->insert;
+      } else {
+        warn "fredbloggs already exists!"
+      }
+    
+    } );
+    
+Now we'll get the SQL:
+
+    START TRANSACTION;
+    SELECT id, username, realname, password, email 
+    FROM users 
+    WHERE username = 'fredbloggs';
+
+    -- Do some work
+    
+    INSERT INTO users
+    (username, realname, password, email)
+    VALUES('fredbloggs', 'Fred Bloggs', 'something daft', 'fred@bloggs.com');
+
+    COMMIT;
+
+If any of these fail, the entire set of statements is automatically
+reverted using the `ROLLBACK` statement.
+
+It's possible that you can't collect all the code you need to run in a
+transaction, into the same place in your code. In this case there are
+also the bare bones methods `txn_begin` and `txn_commit` on the
+`Schema` object, which will independently start and end a
+transaction. Another alternative is the `txn_scope_guard` method which
+will return a `$guard` object. This will issue a rollback if it goes
+out of scope, otherwise it can be used to issue a `commit` statement.
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $users_rs = $schema->resultset('User');
+
+    {
+      my $guard = $schema->txn_scope_guard;
+    
+      my $user = $users_rs->find_or_new({
+         username => 'fredbloggs',
+         realname => 'Fred Bloggs',
+         password => 'something daft',
+         email    => 'fred@bloggs.com',
+      });
+
+      # ... Do some work, pass $user and $guard around ...
+    
+      if(!$user->in_storage) { # New user
+        $user->insert;
+      } else {
+        warn "fredbloggs already exists!"
+      }
+    
+      $guard->commit;
+    }
+ 
+Transactions may be also be nested.
 
