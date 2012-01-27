@@ -218,7 +218,7 @@ its methods are called after those of other components.
 
 Here we're loading an inflate/deflate module to which can inflate database content into an object, and deflate incoming data from an object back into the database. The Authen::Passphrase module hashes passwords as they're entered into the database, and inflate back to an object which can be used to verify them.
 
-For some examples of other useful components, see Chapter XX
+For some examples of other useful components, see [Chapter 6](06-Components-and-extending)
 
 - Line 7
 
