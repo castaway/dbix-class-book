@@ -234,11 +234,89 @@ also gets the Row object.
 
 Unlike FilterColumn and InflateColumn, this code will only have an
 affect when the accessor method itself is called. It will not be run
-when the `create` or `new` methods are called. This functionality will
-be explained later in the section
+when the `create` or `new` methods are called. To achieve the
+equivalent functionality we'll also have to overload the `new`, and
+`update` methods, for examples see the section
 [Setting default values and validation](#Setting-default-values-and-validation).
 
-## Methods on Row/ResultSet objects
+## Your turn, encode the user's real names
+
+Several ways to extend the Result class and change the database values
+going in and out of the storage layer. For this exercise you're going
+to obfuscate the user's stored `realname` in the database, preferably
+in such a way that it can be converted back to the actual value when
+retrieved.
+
+You can implement this one however you like, the test will merely
+verify that the plain stored value in the database is not the same
+string as the one we put in, but when fetched via the accessor,
+matches.
+
+You may need to change code in the Result/User.pm file or the test
+file, make a separate copy of the skeleton code to work on then go ahead:
+
+You can find this test in the file **encode_real_name.t**.
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use Authen::Passphrase::SaltedDigest;
+    use Test::More;
+    use_ok('MyBlog::Schema');
+
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+
+    my $users_rs = $schema->resultset('User');
+    ## Add some initial data:
+    my %usernames = (
+      fred => 'Fred Bloggs',
+      joe  => 'Joe Bloggs',
+    );
+
+    ## Populate in list context, forces use of create() and any deflators.
+    my @users = $users_rs->populate([
+    {
+      realname => $usernames{fred},
+      username => 'fred',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'),
+      email    => 'fred@bloggs.com',
+      posts    => [
+        {  title => 'Post 1', post => 'Post 1 content', created_date => DateTime->new(year => 2012, month => 01, day => 01) },
+        {  title => 'Post 2', post => 'Post 2 content', created_date => DateTime->new(year => 2012, month => 01, day => 03) },
+      ],
+    },
+    {
+      realname => $usernames{joe},
+      username => 'joe',
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'sillypassword'),
+      email    => 'joe@bloggs.com',
+    },
+    ]
+    );
+
+
+    foreach my $username (keys %usernames) {
+      ## can we retrieve fred+joes realnames:
+      
+      my $user = $users_rs->find({ username => $username });
+      is($user->realname, $usernames{$username}, "$username still retrievable");
+      
+      ## are they different in the database:
+      isnt($user->get_column('realname'), $usernames{$username}, "$username isnt stored as itself");      
+    }
+    
+    ## Extra test, make sure both realnames in the database arent stored as the same thing
+    isnt($users_rs->find({ username => 'fred' })->get_column('realname'),
+         $users_rs->find({ username => 'joe' } )->get_column('realname'),
+         'Users arent stored exactly the same');
+         
+    done_testing;
+
+
+## Methods on Row and ResultSet objects
 
 To add methods to your Row object to perform calculations or
 manipulations on your data at runtime, we just need to add the methods
@@ -306,8 +384,76 @@ chapter as a method instead of a view:
     }
     
     1;
+    
+Now the query can be assembled and run by DBIx::Class on demand, to try it out:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $posts_rs= $schema->resultset('Post');
+    
+    my $posts_with_user = $posts_rs->posts_and_user($fred_id);
 
 ## Storing your own data
+
+An often asked question is how to store more, non-database data into
+the Row objects, for the convenience of keeping all the data
+together. As Row objects inherit from our Result classes, we can add
+accessors for other data there. DBIX::Class uses the
+[Class::Accessor::Grouped](http://metacpan.org/module/Class::Accessor::Grouped)
+module underneath, so so add our own accessors we can just use the
+inherited class methods:
+
+
+    package MyBlog::Schema::Result::Email;
+    
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::Core';
+    
+    __PACKAGE__->mk_group_accessors(simple => qw(dateofbirth));
+    
+And then just use the method to read and write the value:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_rs = $schema->resultset('User');
+    my $user = $users_rs->find({ username => 'fred' });
+    
+    $user->dateofbirth('1980-01-10');
+    
+    my $dob = $user->dateofbirth();
+    
+This can of course also be done with
+[Moose](http://metacpan.org/module/Moose) attributes instead. As
+DBIx::Class implements its own `new` method, we need to use
+[MooseX::NonMoose](http://metacpan.org/module/Moose) as well:
+
+    package MyBlog::Schema::Result::Email;
+    
+    use Moose;
+    use MooseX::NonMoose;
+    
+    extends 'DBIx::Class::Core';
+    
+    has 'dateofbirth' => (is => 'rw');
+    
+Just the same usage:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_rs = $schema->resultset('User');
+    my $user = $users_rs->find({ username => 'fred' });
+    
+    $user->dateofbirth('1980-01-10');
+    
+    my $dob = $user->dateofbirth();
+
+Using Moose of course enables you to add default values, validation,
+types and so on. See the
+[attributes manual](http://metacpan.org/module/Moose::Manual::Attributes)
+for more details.
+
 
 ## Setting default values, validation 
 
