@@ -454,8 +454,79 @@ types and so on. See the
 [attributes manual](http://metacpan.org/module/Moose::Manual::Attributes)
 for more details.
 
+## Setting default values
 
-## Setting default values, validation 
+Our `created_date` column in the Post table is set up to take a
+`datetime` value, and currently we have to always supply the timestamp
+to store. We can however default this value to the current date&time
+in several way. 
+
+One straight-forward way is to let the database itself supply the
+value, to include this in the DDL SQL created when running the
+`deploy` method, add the `default_value` key to your column info data
+in the Result class:
+
+    package MyBlog::Schema::Result::Post;
+
+    __PACKAGE__->add_columns(
+    # ...
+    created_date => {
+      data_type            => 'datetime',
+      default_value        => \'CURRENT_TIMESTAMP',
+      retrieve_on_insert   => 1,
+    }
+    );
+    
+`CURRENT_TIMESTAMP` should be converted by
+[SQL::Translator](http://metacpan.org/module/SQL::Translator) into the
+correct incantation for your particular database (if not please help
+us fix it!). `retrieve_on_insert` is used to ensure that this created
+value is fetched and stored in any new Row objects after insertion
+into the database.
+
+We can also have the code supply the timestamp value, which gives us
+more flexibility about when the value is supplied or updated. First
+install the component
+[DBIx::Class::TimeStamp](http://metacpan.org/module/DBIx::Class::TimeStamp)
+from CPAN. Add it as a component to the `Post` Result class, and use
+the `set_on_create` and `set_on_update` column info keys to control
+when the values are set:
+
+    package MyBlog::Schema::Result::Post;
+
+    __PACKAGE__->add_columns(
+    # ...
+    created_date => {
+      data_type            => 'datetime',
+      set_on_create        => 1,
+      set_on_update        => 0,
+    }
+    );
+
+This time we don't need the `retrieve_on_insert` as the value is set
+into the object from the Perl code.
+
+In either case we `create` new Post entries just by supplying all the
+required other needed values and leaving out the `created_date` value:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_rs= $schema->resultset('User');
+    my $fred = $users_rs->find({ username => 'fred' });
+    
+    $fred->create_related('posts', {
+       title => 'My Post',
+       post => 'Some content',
+    });
+    
+You'll notice that out of the five columns for the posts table we can
+skip three, `id` as its an auto increment primary key and will be supplied by
+the database, `user_id` as we're creating a related entry and get the
+value from the user object, and now `created_date` as its defaulted.
+
+## Writing your own components
+
+
 
 ## Encoding content (passwords)
 
