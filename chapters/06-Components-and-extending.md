@@ -524,10 +524,156 @@ skip three, `id` as its an auto increment primary key and will be supplied by
 the database, `user_id` as we're creating a related entry and get the
 value from the user object, and now `created_date` as its defaulted.
 
+To default any type of value in your Perl code, you can use the
+component
+[DBIx::Class::DynamicDefault](http://metacpan.org/module/DBIx::Class::DynamicDefault)
+from CPAN. Here's how to implement the default our `created_date` value
+using this instead of DBIx::Class::TimeStamp:
+
+    package MyBlog::Schema::Result::Post;
+    
+    use DateTime;
+
+    __PACKAGE__->add_columns(
+    # ...
+    created_date => {
+      data_type                        => 'datetime',
+      dynamic_default_on_create        => 'set_created_date',
+      dynamic_default_on_update        => '',
+    }
+    );
+
+    sub set_created_date {
+      return DateTime->now();
+    }
+
+
 ## Writing your own components
 
+We've looked at several ways of extending your DBIx::Class classes
+using existing components, but what if you don't find a component that
+does what you need? Make sure you've checked CPAN first, and ask in
+the IRC community channel at irc.perl.org.
+
+If you've done all that and you'd still like to write your own we need
+to first look at the available Schema, ResultSource, Row and ResultSet
+methods that you'll need to consider enhancing.
+
+For each of these, you can use Class::C3 / mro method dispatching with
+`$self->next::method` to call the normal code workflow.
+
+### new
+
+Extending the `new` method in your Result class can be used to
+influence how the values passed to the `create` method are
+handled. `create` itself just calls `new` then `insert`, so there is
+no need to override it.
+
+For example to create / import a user and a bunch of existing posts
+using a simple arrayref of post titles and contents:
+
+    package MyBlog::Schema::Result::User;
+    
+    # ...
+    
+    sub new {
+      my ($class, $attrs) = @_;
+
+      # [ [], []] to [{}, {}]      
+      my $posts = [map { +{ title => $_->[0], post => $_->[1] }} 
+        @{ $attrs->{posts} }];
+      $attrs->{posts} = $posts;
+      
+      $self->next::method($attrs);
+    }
+
+Which will now cope with this structure:
+
+    my $userdata = {
+      username => 'fred',
+      realname => 'Fred Bloggs',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'mypass',
+      ),
+      email => 'fred@bloggs.com',
+      posts => [ [ 'First Post', 'Post1 content' ], [ 'Post two', 'Post2 content']],
+      };
+      
+      $schema->resultset('User')->create($userdata);
+
+You can also store data from `new` in the row object, which can be
+accessed at `insert` time if needed. Create your own accessors for
+this as described earlier in
+[Storing your down data](#storing-your-own-data).
+
+### insert
+
+The `insert` method can be extended to make last-minute changes to data before it actually gets written to the database.
+
+### update
+
+While the `create` method can handle creation of related rows, the
+`update` method does not as its more ambiguous. We can however enhance
+it to fit our own needs.
+
+As we've extended `new`, we could also amend `update` in the same way
+so that it takes the same data structures and adds more posts for the
+user. To do this we extract the code written for `new` and re-use it:
+
+    package MyBlog::Schema::Result::User;
+    
+    # ...
+    
+    sub post_array_to_hashref {
+      my ($self, $posts_array) = @_;
+      
+      # [ [], []] to [{}, {}]      
+      my $posts = [map { +{ title => $_->[0], post => $_->[1] }} 
+        @{ $attrs->{posts} }];
+      
+      return $posts;
+    }
+    
+    sub new {
+      my ($class, $attrs) = @_;
+      
+      $attrs->{posts} = $self->post_array_to_hashref($attrs->{posts});
+      
+      $self->next::method($attrs);
+    }
+    
+    sub update {
+      my ($self, $attrs) = @_;
+      
+      ## Remove the posts values, as update doesn't know what to do with them
+      my $posts = delete $attrs->{posts};
+      $self->next::method($attrs);
+
+      my $post_hashrefs = $self->post_array_to_hashref($posts);     
+      $self->create_related('posts', $_) for (@{$posts});
+      
+      return $self;
+    }
+
+### delete
+
+The `delete` method can be extended, for example, to remove any associated
+non-database content, or empty a local cached copy.
+
+### delete / update on ResultSet
+
+Don't miss out the methods available on the ResultSet objects, which
+will `update` or `delete` multiple rows at once. Note that there are
+also `delete_all` and `update_all` methods available which will run
+each update or delete operation individually on the Row objects, and
+thus call any code you have added in your Result Class.
+
+We looked at making our own ResultSets in [Chapter 5](05-Further-queries-and-helpers#data-set-manipulation-and-resultset-extension).
+
+### register_column
 
 
-## Encoding content (passwords)
 
 ## Auditing, previewing data
