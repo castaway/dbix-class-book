@@ -168,11 +168,12 @@ explanation.
 Our user table looks like this (in mysql or SQLite):
 
     CREATE TABLE users (
-      id INTEGER AUTOINCREMENT PRIMARY KEY,
-      realname VARCHAR(255),
-      username VARCHAR(255),
-      password VARCHAR(255),
-      email VARCHAR (255)
+      id INT AUTO_INCREMENT,
+      realname TINYTEXT,
+      username TINYTEXT,
+      password TINYTEXT,
+      email TINYTEXT,
+      PRIMARY KEY (id)
     );
 
 This is the result class for the users table:
