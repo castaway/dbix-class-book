@@ -1,0 +1,46 @@
+Files from/in /user/src/perl/progtorial/ProgTorial/web/tutorials/dbix-class/
+Format: Markdown with Pandoc extensions - 
+http://johnmacfarlane.net/pandoc/README.html#pandocs-markdown
+
+.. mention that column names need to be perl identifiers somewhere, else accessor needs setting?
+
+- in Describing databases, add a sidebar/explanatory block, listing the other valid column_info keys, maybe using pandocs DD/DT syntax?
+- after this, add a "try it out" section which has the user write a column_info block for (into) User.pm for created_on, using a datetime field, with default value CURRENT TIMESTAMP
+
+
+Row::insert:
+- now has a retrieve_on_insert key for col infos to name more columns that are filled by the db? pulls these plus pcols? (if not supplied)
+
+####
+
+Did I explain "me." and "relname." yet? (by chapter 5, "fetch ordered posts"?
+
+Ditto: MySQL ansi mode?
+
+Intro: Book is not about learning SQL, will describe each concept we cover, but will not fully cover every available function or method.
+
+Add section on literal SQL, at the moment is in 05/having section.
+
+Make sure examples of SQL show placeholders and lists of values applied to them
+
+Footnotes, glossary or both?
+
+UNION/INTERSECT/EXCEEPT = colnames have to be the same? (Helpers::SetOperations says so) - my 5CD2-02-Foundation-2006-01.pdf seems to say not, >query expression> section 7.13, note 16+ seems to say only if "CORRESPONDING" is specified.. names of cols in resulting content is implementation dependent if 
+
+Recursive queries? Trees? Multi-level joins? Functions?
+
+Mention inflatecolumn::Datetime for Post.pm! Ch3 (see also Ch6)
+
+dbic todo: load_components not documented anywhere? see https://metacpan.org/module/Class::C3::Componentised#load_components-comps- !
+
+dbic modules - website - "officially" endorsed/supported components?
+
+Errata, write small app for storing on dbix-class.org, invlude Schema in book.. other "here's one I made earlier"?
+
+Bounties/contributor list for people finding bugs (confirmed) pre-publish? - signed copy to finder of most bugs/fixes?
+
+Database design = describe issue with user->roles.. post as editor, post as commentor (what is a "comment" and how is it not a Post?) then discover what roles a user has, where to get that data from?
+
+Test markdown output!? templates!? (psuedopod template?)
+
+
