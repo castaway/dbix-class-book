@@ -7,7 +7,7 @@ Chapter 1 - Introduction and general data storage
 
 This book will introduce you to DBIx::Class, the Perl module for dealing with your database(s).
 
-If you are already sure that DBIx::Class is the solution to your Perl data storage problems, then you can probably skip this chapter and move straight on to [Chaper 2, "Databases, design and layout"](02-Database-design), or [Chapter 3, "Describing your database"](03-Describing-database) to start learning. This chapter explains what DBIx::Class is and when to use it instead of some other ways of storing data.
+If you are already sure that DBIx::Class is the solution to your Perl data storage problems, then you can probably skip this chapter and move straight on to [](chapter_02-databases-design-and-layout), or [](chapter_03-describing-your-database) to start learning. This chapter explains what DBIx::Class is and when to use it instead of some other ways of storing data.
 
 What is DBIx::Class?
 --------------------

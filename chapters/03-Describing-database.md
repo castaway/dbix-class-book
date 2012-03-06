@@ -21,7 +21,7 @@ Pre-requisites
 Examples given in this chapter will work with the one-file database [SQLite](http://www.sqlite.org), which can be installed for Perl by installing the CPAN module [DBD::SQLite](http://search.cpan.org/dist/DBD-SQLite).
 
 You should already know what a database is, and understand the basic
-SQL operation CREATE TABLE, refer to [Chapter 2](02-Database-design)
+SQL operation CREATE TABLE, refer to [](chapter_02-databases-design-and-layout)
 if you need to. We will also assume that you know the basics of
 writing Perl classes (and packages), and the keywords that go with
 them. [^modernperl]
@@ -116,8 +116,7 @@ associated Result classes.
     1;
 
 `load_namespaces` does the actual work here, it finds and loads all
-the files found in the `Result` subnamespace of your schema, see [A
-word about namespaces](#a-word-about-namespaces) above. It can also be
+the files found in the `Result` subnamespace of your schema, see [](chapter_03-a-word-about-module-namespaces) above. It can also be
 configured to use other namespaces, or load only a subset of the
 available classes, by explicitly listing them.
 
@@ -141,8 +140,7 @@ result from those database queries are based on your Result classes,
 meaning any methods added to the class will be available to call on
 those result objects.
 
-When each Result class is loaded by the [Schema
-class](#the-schema-class), a ResultSource instance is created to
+When each Result class is loaded by the [](chapter_03-the-schema-class), a ResultSource instance is created to
 contain the database structure information. Later the ResultSource
 object can be retrieved from the Schema object if needed, to ask it 
 information about the schema, for example to iterate through the
@@ -219,7 +217,7 @@ its methods are called after those of other components.
 
 Here we're loading an inflate/deflate module to which can inflate database content into an object, and deflate incoming data from an object back into the database. The Authen::Passphrase module hashes passwords as they're entered into the database, and inflate back to an object which can be used to verify them.
 
-For some examples of other useful components, see [Chapter 6](06-Components-and-extending)
+For some examples of other useful components, see [](chapter_06-components-and-extending)
 
 - Line 7
 
@@ -441,7 +439,7 @@ First `connect` to the Schema class (this returns a Schema object), using a DSN[
 
     perl -MMyBlog::Schema -le'my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db"); $schema->deploy();'
 
-We will discuss [deployment](http://search.cpan.org/perldoc?DBIx::Class::Tutorial::Deployment) more
+We will discuss [](chapter_07-deployment) more
 at length later when talking about how to change your schema without
 having to destroy your existing data.
 

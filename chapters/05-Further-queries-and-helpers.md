@@ -5,7 +5,7 @@ Chapter summary
 ---------------
 
 This chapter expands on the basic operations shown in
-[Chapter 4](04-Creating-Reading-Updating-Deleteing.html) by showing
+[](chapter_04-creating-reading-updating-deleting) by showing
 how to do much more complex searches across the data. It also
 demonstrates a few useful external modules available on CPAN and how
 to do transactions and locking.
@@ -143,7 +143,7 @@ not create a new accessor method on the resulting Row object.
     }
 
 Later on in the
-[section on joining](#joining-filtering-and-grouping-on-related-data)
+[](chapter_05-joining-aggregating-and-grouping-on-related-data)
 we'll show how to include data from related tables, and select entire
 sets of related data in the same single query.
 
@@ -462,7 +462,7 @@ This test can be found in the file **earliest_posts.t**.
 
 ## Filtering data after grouping
 
-With [group_by](#joining-aggregating-and-grouping-on-related-data) and
+With [group_by](chapter_05-joining-aggregating-and-grouping-on-related-data) and
 various aggregation functions we can sum or count data across groups
 of rows, if we want to then filter the results again, for example to
 get only the groups whose COUNT is greater than a certain value, we
@@ -949,7 +949,7 @@ like a table in `SELECT` statements. The underlying query is run when
 needed to fetch the data. 
 
 As views are used similarly to tables, you can just create a normal
-Result class, as described in [Chapter 3](03-describing-database),
+Result class, as described in [](chapter_03-describing-your-database),
 using the name of the view as the `table` argument.
 
 WARNING: Although this may make the view look like a table, it may not

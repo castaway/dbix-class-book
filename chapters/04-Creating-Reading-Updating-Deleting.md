@@ -4,7 +4,7 @@ Chapter 4 - Creating, Reading, Updating and Deleting
 Chapter summary
 ---------------
 
-In this chapter we will show how to do basic database operations using your DBIx::Class classes. We are using the MyBlog schema described in [chapter 3]()
+In this chapter we will show how to do basic database operations using your DBIx::Class classes. We are using the MyBlog schema described in [](chapter_03-describing-your-database)
 
 Pre-requisites
 --------------
@@ -82,7 +82,7 @@ so you can also do this:
 
 Note how all the columns described in the `User.pm` class using `add_columns` appear on the **Row object** as accessor methods.
 
-To see what's going on, set the shell environment variable [`DBIC_TRACE`](## appendix?) to a true value, and DBIx::Class will display the SQL statement for either of these code samples on STDOUT:
+To see what's going on, set the shell environment variable [^DBIC_TRACE] to a true value, and DBIx::Class will display the SQL statement for either of these code samples on STDOUT:
 
     INSERT INTO users (realname, username, password, email) VALUES (?, ?, ?, ?): 'Fred Bloggs', 'fred', 'XXYYZZ', 'fred@bloggs.com'
 
@@ -654,7 +654,7 @@ possible race conditions. Run this inside a transaction, like this:
       });
    });
       
-See [Chapter 5](#transactions-and-locks.html) for more on transactions.
+See [](chapter_05-preventing-race-conditions-with-transactions-and-locking) for more on transactions.
 
 ## Trying out the advanced CRUD methods
 
@@ -763,3 +763,4 @@ This test can be found in the file **advanced_methods.t**.
     done_testing;
     
 [^new_result]: new_result creates a Row object that stores the data given, but does not enter it into the database. The `in_storage` method can be used to check the status of a Row object (true == is in the database).
+[^DBIC_TRACE]: An environment variable to turn on debugging info which dumps the SQL queries made. Use `set DBIC_TRACE=1` on Windows or csh, and `export DBIC_TRACE=` on bash-like shells.

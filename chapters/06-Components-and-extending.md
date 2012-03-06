@@ -13,7 +13,7 @@ Pre-requisites
 --------------
 
 You will need to have
-understood the basic setup in [Chapter 3](03-Describing-database) and
+understood the basic setup in [](chapter_03-describing-your-database) and
 understand how to use
 [mro method dispatching](https://metacpan.org/module/mro#next::method).
 
@@ -33,7 +33,7 @@ Introduction
 ------------
 
 We've already mentioned a couple of useful components in
-[Chapter 3](03-Describing-database) for expanding simple database
+[](chapter_03-describing-your-database) for expanding simple database
 content into objects, we'll explain how this works and how to add your
 own inflations. We'll also cover storing data that isn't in the
 database, adding re-usable query methods and validation.
@@ -237,7 +237,7 @@ affect when the accessor method itself is called. It will not be run
 when the `create` or `new` methods are called. To achieve the
 equivalent functionality we'll also have to overload the `new`, and
 `update` methods, for examples see the section
-[Setting default values and validation](#Setting-default-values-and-validation).
+[Setting default values and validation](chapter_06-setting-default-values-and-validation).
 
 ## Your turn, encode the user's real names
 
@@ -325,7 +325,7 @@ to the Result class, which the Row object inherits from.
 Suppose we wanted to be able to get the host portion of the user's
 email address, without the overhead of creating the Email::Address
 object everytime we access the `email` accessor, as we had in
-[Turning column data into useful objects](#Turning-column-data-into-useful-objects)
+[Turning column data into useful objects](chapter_06-turning-column-data-into-useful-objects)
 above. We can just add our own separate method:
 
     ## in MyBlog/Schema/Result/User.pm
@@ -360,7 +360,7 @@ class and methods, write a class for the corresponding Result class,
 in the _ResultSet_ namespace. 
 
 We can store our PostsAndUser query from the
-[Further queries and helpers](Further-queries-and-helpers#Real-or-virtual-Views-and-stored-procedures)
+[](chapter_05-real-or-virtual-views-and-stored-procedures)
 chapter as a method instead of a view:
 
     package MyBlog::Schema::ResultSet::Post;
@@ -606,7 +606,7 @@ Which will now cope with this structure:
 You can also store data from `new` in the row object, which can be
 accessed at `insert` time if needed. Create your own accessors for
 this as described earlier in
-[Storing your down data](#storing-your-own-data).
+[Storing your down data](chapter_06-storing-your-own-data).
 
 ### insert
 
@@ -670,7 +670,7 @@ also `delete_all` and `update_all` methods available which will run
 each update or delete operation individually on the Row objects, and
 thus call any code you have added in your Result Class.
 
-We looked at making our own ResultSets in [Chapter 5](05-Further-queries-and-helpers#data-set-manipulation-and-resultset-extension).
+We looked at making our own ResultSets in [Chapter 5](chapter_05-data-set-manipulation-and-resultset-extension).
 
 ### register_column
 
