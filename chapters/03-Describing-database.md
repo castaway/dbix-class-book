@@ -124,11 +124,6 @@ The loaded files are assumed to be actual **Result classes** (see
 below) if anything else is found in the subnamespace, the load will
 complain and die.
 
-[%#
-For discussions of alternative styles and methods of writing Schema
-classes, see [Alternative Schema classes](#pod_Alternative Schema classes) below.
-%]
-
 The Result class
 ----------------
 

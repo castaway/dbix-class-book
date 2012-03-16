@@ -5,7 +5,7 @@ Chapter summary
 ---------------
 
 This chapter expands on the basic operations shown in
-[](chapter_04-creating-reading-updating-deleting) by showing
+[](chapter_04-creating-reading-updating-and-deleting) by showing
 how to do much more complex searches across the data. It also
 demonstrates a few useful external modules available on CPAN and how
 to do transactions and locking.
@@ -462,7 +462,7 @@ This test can be found in the file **earliest_posts.t**.
 
 ## Filtering data after grouping
 
-With [group_by](chapter_05-joining-aggregating-and-grouping-on-related-data) and
+With [](chapter_05-joining-aggregating-and-grouping-on-related-data) and
 various aggregation functions we can sum or count data across groups
 of rows, if we want to then filter the results again, for example to
 get only the groups whose COUNT is greater than a certain value, we

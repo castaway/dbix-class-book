@@ -15,16 +15,16 @@ Pre-requisites
 You will need to have
 understood the basic setup in [](chapter_03-describing-your-database) and
 understand how to use
-[mro method dispatching](https://metacpan.org/module/mro#next::method).
+[mro method dispatching](http://metacpan.org/module/mro#next::method).
 
 NOTE: On versions of perl before 5.10.x you will need to read
-[the Class::C3 docs](https://metacpan.org/module/Class::C3#METHOD-REDISPATCHING)
+[the Class::C3 docs](http://metacpan.org/module/Class::C3#METHOD-REDISPATCHING)
 instead.
 
 We will be giving code examples and tests using Test::More so you
 should be familiar with Perl unit testing. The database we are using
 is provided as an SQL file you can import into an
-[SQLite database](http://search.cpan.org/dist/DBD-SQLite) to get
+[SQLite database](http://metacpan.org/dist/DBD-SQLite) to get
 started.
 
 [Download code](http://dbix-class.org/book/code/chapter06.zip)
@@ -237,7 +237,7 @@ affect when the accessor method itself is called. It will not be run
 when the `create` or `new` methods are called. To achieve the
 equivalent functionality we'll also have to overload the `new`, and
 `update` methods, for examples see the section
-[Setting default values and validation](chapter_06-setting-default-values-and-validation).
+[](chapter_06-setting-default-values).
 
 ## Your turn, encode the user's real names
 
@@ -325,7 +325,7 @@ to the Result class, which the Row object inherits from.
 Suppose we wanted to be able to get the host portion of the user's
 email address, without the overhead of creating the Email::Address
 object everytime we access the `email` accessor, as we had in
-[Turning column data into useful objects](chapter_06-turning-column-data-into-useful-objects)
+[](chapter_06-turning-column-data-into-useful-objects)
 above. We can just add our own separate method:
 
     ## in MyBlog/Schema/Result/User.pm
@@ -606,7 +606,7 @@ Which will now cope with this structure:
 You can also store data from `new` in the row object, which can be
 accessed at `insert` time if needed. Create your own accessors for
 this as described earlier in
-[Storing your down data](chapter_06-storing-your-own-data).
+[](chapter_06-storing-your-own-data).
 
 ### insert
 
@@ -670,7 +670,7 @@ also `delete_all` and `update_all` methods available which will run
 each update or delete operation individually on the Row objects, and
 thus call any code you have added in your Result Class.
 
-We looked at making our own ResultSets in [Chapter 5](chapter_05-data-set-manipulation-and-resultset-extension).
+We looked at making our own ResultSets in [](chapter_05-data-set-manipulation-and-resultset-extension).
 
 ### register_column
 

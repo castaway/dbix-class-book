@@ -184,7 +184,7 @@ The downloadable content for this chapter contains a file named
 _multiple-users.csv_ containing several user's data in
 comma-separated-values format. To read the lines from the file you can
 parse it using a module like
-[Text::xSV](https://metacpan.org/module/Text::xSV). The test file can also be found in the Appendix if you don't have the downloadable content.
+[Text::xSV](http://metacpan.org/module/Text::xSV). The test file can also be found in the Appendix if you don't have the downloadable content.
 
 Data file:
 
