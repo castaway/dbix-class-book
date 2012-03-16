@@ -9,7 +9,7 @@ General notes
 DBIx::Class Outline
 ===================
 
-Introduction and general data storage
+1 - Introduction and general data storage
 -------------------------------------
 
 ### What is DBIx::Class?
@@ -20,7 +20,7 @@ Introduction and general data storage
 
 ### Why DBIx::Class?
 
-Databases, design and layout
+2 - Databases, design and layout
 ----------------------------
 
 ### Some databases to choose from
@@ -31,7 +31,7 @@ Databases, design and layout
 
 ### Examples and exercises
 
-Setting up DBIx::Class, basic usage
+3 - Setting up DBIx::Class, basic usage
 -----------------------------------
 
 ### Types of DBIC classes
@@ -48,7 +48,7 @@ Setting up DBIx::Class, basic usage
 
 ### Basic usage, connect, search/find, output data (accessors)
 
-Creating, Reading, Updating and Deleting
+4 - Creating, Reading, Updating and Deleting
 ----------------------------------------
 
 ### Create a User entry, prove it worked with a test
@@ -65,7 +65,7 @@ Creating, Reading, Updating and Deleting
 
 ### Advanced create/update/delete
 
-Further queries and helpers
+5 - Further queries and helpers
 ---------------------------
 
 ### Recap simple search queries?
@@ -84,7 +84,7 @@ Further queries and helpers
 
 ### Transactions, locks etc
 
-Components and extending
+6 - Components and extending
 ------------------------
 
 ### Adding methods to Row/ResultSet objects
@@ -99,7 +99,7 @@ Components and extending
 
 ### Auditing, previewing data
 
-More CPAN extensions/modules
+7 - More CPAN extensions/modules
 ----------------------------
 
 ### Versioning, refactoring, deploying
