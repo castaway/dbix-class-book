@@ -14,9 +14,6 @@ local *Text::Wrap::wrap;
 my @chapters = get_chapter_list();
 my $anchors  = get_anchors(@chapters);
 
-use Data::Dumper;
-print STDERR Dumper($anchors);
-
 sub Pod::PseudoPod::HTML::end_L
 {
     my $self = shift;
