@@ -20,7 +20,7 @@ The DBIx::Class classes (also called your DBIC schema) contain all the data need
 
 ## Create a Schema object using a database connection
 
-All the database manipulation with DBIx::Class is done via one central Schema object, which maintains the connection to the database via a [storage object](## storage link). To create a schema object, call `connect` on your DBIx::Class::Schema subclass, passing it a [Data Source Name][^dsn].
+All the database manipulation with DBIx::Class is done via one central Schema object, which maintains the connection to the database via a [storage object](http://metacpan.org/module/DBIx::Class::Storage). To create a schema object, call `connect` on your DBIx::Class::Schema subclass, passing it a [Data Source Name][^dsn].
 
     my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db");
     
