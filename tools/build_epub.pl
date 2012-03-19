@@ -12,6 +12,7 @@ use warnings;
 use Pod::PseudoPod::HTML;
 use File::Spec::Functions qw( catfile catdir splitpath );
 use EBook::EPUB;
+use File::Path 'mkpath';
 
 # P::PP::H uses Text::Wrap which breaks HTML tags
 local *Text::Wrap::wrap;
@@ -87,9 +88,10 @@ sub clean_name
 sub Pod::PseudoPod::HTML::end_L
 {
     my $self = shift;
-    if ($self->{scratch} =~ s/\b(\w+)$//)
+    if ($self->{scratch} =~ s/\b([\w-]+)$//)
     {
         my $link = $1;
+        print STDERR "Scratch: ", $self->{scratch}, "\n";
         die "Unknown link $link\n" unless exists $anchors->{$link};
         $self->{scratch} .=
             '<a href="'
@@ -168,6 +170,8 @@ sub get_output_fh
     my $chapter  = shift;
     my $name     = (splitpath $chapter )[-1];
     my $xhtmldir = catdir(qw( build xhtml ));
+
+    mkpath($xhtmldir) if(!-e $xhtmldir);
 
     $name =~ s/\.pod/\.xhtml/;
     $name = catfile($xhtmldir, $name);
@@ -252,8 +256,8 @@ sub generate_ebook
     my $epub = EBook::EPUB->new();
 
     # Set the ePub metadata.
-    $epub->add_title('Modern Perl');
-    $epub->add_author('chromatic');
+    $epub->add_title('The DBIx::Class Book');
+    $epub->add_author('Jess Robinson');
     $epub->add_language('en');
 
     # Add the book cover.
@@ -285,7 +289,7 @@ sub generate_ebook
     mkdir $dir unless -e $dir;
 
     # Generate the ePub eBook.
-    my $filename = catfile(qw(build epub modern_perl.epub));
+    my $filename = catfile(qw(build epub the_dbix_class_book.epub));
     $epub->pack_zip($filename);
 }
 
