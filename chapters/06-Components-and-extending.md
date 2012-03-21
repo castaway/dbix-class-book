@@ -608,15 +608,39 @@ Which will now cope with this structure:
 
 
 
-### insert
+### Result class - insert
 
-The `insert` method can be extended to make last-minute changes to data before it actually gets written to the database.
+Extensions to `new` will be applied as the Row object is created. To
+change data just as it's being inserted into the database, for example
+to set a timestamp (datetime) field at the last possible moment,
+extend the `insert` method instead.
 
-### update
+    package MyBlog::Schema::Result::Post;
+    
+    # ...
+    use DateTime;
+    
+    sub insert {
+      my ($self) = @_;
+
+      $self->created_date(DateTime->new);
+      $self->next::method();
+    }
+
+Of course, the
+[DBIx::Class::TimeStamp](http://metacpan.org/module/DBIx::Class::TimeStamp)
+module exists to do this particular defaut-value setting for you. To
+set defaults for things other than datetime fields, use the
+[DBIx::Class::DynamicDefault](http://metacpan.org/module/DBIx::Class::DynamicDefault)
+module.
+
+### Result class - update
 
 While the `create` method can handle creation of related rows, the
-`update` method does not as its more ambiguous. We can however enhance
-it to fit our own needs.
+`update` method does not yet as it is more difficult to determine what
+is required. For example, does a User update with a set of Posts mean
+replace all the existing Posts, or just add new ones? We can however
+enhance it to fit our own needs.
 
 As we've extended `new`, we could also amend `update` in the same way
 so that it takes the same data structures and adds more posts for the
@@ -629,7 +653,7 @@ user. To do this we extract the code written for `new` and re-use it:
     sub post_array_to_hashref {
       my ($self, $posts_array) = @_;
       
-      # [ [], []] to [{}, {}]      
+      # convert input of [ [], []] to [{}, {}]      
       my $posts = [map { +{ title => $_->[0], post => $_->[1] }} 
         @{ $attrs->{posts} }];
       
@@ -647,22 +671,46 @@ user. To do this we extract the code written for `new` and re-use it:
     sub update {
       my ($self, $attrs) = @_;
       
-      ## Remove the posts values, as update doesn't know what to do with them
+      ## Collect and remove the posts values, as update doesn't know what to do with them
       my $posts = delete $attrs->{posts};
       $self->next::method($attrs);
 
+      ## Add new posts for each post, this does not replace existing posts  
       my $post_hashrefs = $self->post_array_to_hashref($posts);     
       $self->create_related('posts', $_) for (@{$posts});
       
       return $self;
     }
 
-### delete
+### Result class - delete
 
 The `delete` method can be extended, for example, to remove any associated
-non-database content, or empty a local cached copy.
+non-database content, or empty a local cached copy. 
 
-### delete / update on ResultSet
+Using the imaginary class UserImages, which holds paths to stored
+images on disc, we have it remove (unlink) the file on delete of the
+row:
+
+    package MyBlog::Schema::Result::UserImages;
+    
+    # ...
+        
+    sub delete {
+      my ($self) = @_;
+
+      $self->next::method();
+      unlink($self->image_path);
+    }
+
+This example has the extending code after the actual delete (the
+`next::method`) to ensure that it only happens if the database DELETE
+didn't fail.
+
+Again, there is already a module to deal with file and path storage,
+[DBIx::Class::InflateColumn::FS](http://metacpan.org/module/DBIx::Class::InflateColumn::FS),
+so use it unless you have more complicated needs.
+
+### ResultSet - delete / update
 
 Don't miss out the methods available on the ResultSet objects, which
 will `update` or `delete` multiple rows at once. Note that there are
@@ -670,9 +718,74 @@ also `delete_all` and `update_all` methods available which will run
 each update or delete operation individually on the Row objects, and
 thus call any code you have added in your Result Class.
 
-We looked at making our own ResultSets in [](chapter_05-data-set-manipulation-and-resultset-extension).
+As shown earlier in
+[](chapter_05-data-set-manipulation-and-resultset-extension), we need
+to create an extra ResultSet class to extend ResultSet methods. By
+default the base `DBIx::Class::ResultSet` class is used, to extend it
+for a particular ResultSet type, create a file in the
+MyBlog::Schema::ResultSet namespace, and add your methods:
 
-### register_column
+    package MyBlog::Schema::ResultSet::User;
+    
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::ResultSet';
+
+    sub update {
+      my ($self, $attrs) = @_;
+      
+      $self->next::method($attrs);
+    }
+
+    sub delete {
+      my ($self) = @_;
+      
+      $self->next::method();
+    }
+    
+    1;
+
+### Aside -  Querying column and other source data
+
+Each Row or ResultSet object has access to the ResultSource object
+created by loading the Result class, via the `result_source`
+method. The ResultSource can be queried for information about the
+columns and relationships, here are some of the available methods:
+
+* `columns` - A list of the column names added using `add_columns`.
+* `column_info` - The hashref of data provided to `add_columns` for a given column.
+* `relationships` - A list of relationship names added in the Result class.
+* `relationship_info` - A hashref of data about the given relationship, details are in the docs for `add_relationship`.
+* `unique_constraints` - A hash of unique constraints defined using `add_unique_constraint`, keyed on the constraint name.
+
+Generally when overloading Row or ResultSet objects you can just
+retrieve the data for the new keys by querying the ResultSource in the
+overloaded Row and ResultSet methods. Here's an example using the
+`update` overload:
+
+    sub update {
+      my ($self, $attrs) = @_;
+      
+      foreach my $col ($self->result_source->columns) {
+        if($self->result_source->column_info($col)->{set_on_create} {
+          $self->$col(DateTime->new);
+        }
+    }
+
+### Result class - register_column
+
+The `register_column` method is run once for each column that is
+created using `add_columns`, this is the place to do any complicated
+calculations needed if you have added new keys to your column info, as
+it will only be run once upon load of the Schema.
+
+### Schema class - register_class
+
+The Schema class is also available for extension or adding components,
+the most common use is to use `register_class` to parse content added
+to the column info data for each column. 
+
 
 
 
