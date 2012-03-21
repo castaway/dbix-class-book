@@ -553,16 +553,19 @@ using this instead of DBIx::Class::TimeStamp:
 We've looked at several ways of extending your DBIx::Class classes
 using existing components, but what if you don't find a component that
 does what you need? Make sure you've checked CPAN first, and ask in
-the IRC community channel at irc.perl.org.
+the IRC community channel "#dbix-class" at irc.perl.org.
 
-If you've done all that and you'd still like to write your own we need
-to first look at the available Schema, ResultSource, Row and ResultSet
-methods that you'll need to consider enhancing.
+If you've done all that and you'd still like to write your own then
+you first need to decide which parts of the process of creating,
+inserting, updateing and deleting data you want to extend. We'll look
+at all the available Schema, ResultSource, Row and ResultSet methods
+and dicuss why you would need each one.
 
 For each of these, you can use Class::C3 / mro method dispatching with
-`$self->next::method` to call the normal code workflow.
+`$self->next::method` to call the normal code workflow. This is
+demonstrated for each method.
 
-### new
+### Result class - new
 
 Extending the `new` method in your Result class can be used to
 influence how the values passed to the `create` method are
@@ -579,7 +582,7 @@ using a simple arrayref of post titles and contents:
     sub new {
       my ($class, $attrs) = @_;
 
-      # [ [], []] to [{}, {}]      
+      # convert input of [ [], []] to [{}, {}]      
       my $posts = [map { +{ title => $_->[0], post => $_->[1] }} 
         @{ $attrs->{posts} }];
       $attrs->{posts} = $posts;
@@ -603,10 +606,7 @@ Which will now cope with this structure:
       
       $schema->resultset('User')->create($userdata);
 
-You can also store data from `new` in the row object, which can be
-accessed at `insert` time if needed. Create your own accessors for
-this as described earlier in
-[](chapter_06-storing-your-own-data).
+
 
 ### insert
 
