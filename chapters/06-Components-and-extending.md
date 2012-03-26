@@ -778,14 +778,37 @@ overloaded Row and ResultSet methods. Here's an example using the
 The `register_column` method is run once for each column that is
 created using `add_columns`, this is the place to do any complicated
 calculations needed if you have added new keys to your column info, as
-it will only be run once upon load of the Schema.
+it will only be run once upon load of the Schema. 
+
+In this example, if we want to allow the user to set some extra keys,
+but also provide defaults, we can check and set these in
+`register_column`.
+
+    sub register_column {
+        my ($self, $column, $info, @rest) = @_;
+        $self->next::method($column, $info, @rest);
+
+        ## Skip this column unless we care about it
+        return unless defined $info->{'is_somethingwecareabout'};
+
+        my $my_class = $info->{my_set_class} || 'Some::Class';
+        eval "use $my_class";
+        $self->throw_exception("Error loading $my_class: $@") if $@;
+
+        ## Setup the inflation based on the class: 
+        $self->inflate_column(
+            $column => {
+                inflate => sub { return $my_class->new(shift); },
+                deflate => sub { return scalar shift->new; },
+            }
+        );
+    }
 
 ### Schema class - register_class
 
 The Schema class is also available for extension or adding components,
-the most common use is to use `register_class` to parse content added
-to the column info data for each column. 
-
+`register_class` for example is called for each Result class loaded by
+`load_namespaces`.
 
 
 
