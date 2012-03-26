@@ -207,7 +207,7 @@ Then we get to the DBIx::Class specific bits:
 `load_components` comes from [DBIx::Class::Componentised](http://search.cpan.org/perldoc?DBIx::Class::Componentised) and is
 used to load a series of modules whose methods can delegate to each
 other. Thus components need to be loaded in a specific order. The
-[DBIx::Class::Core](http://search.cpan.org/perldoc?DBIx::Class::Core) component should always be loaded last so that
+[DBIx::Class::Core](http://metacpan.org/module/DBIx::Class::Core) component should always be loaded last so that
 its methods are called after those of other components.
 
 Here we're loading an inflate/deflate module to which can inflate database content into an object, and deflate incoming data from an object back into the database. The Authen::Passphrase module hashes passwords as they're entered into the database, and inflate back to an object which can be used to verify them.

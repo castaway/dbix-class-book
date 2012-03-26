@@ -34,7 +34,7 @@ Introduction
 
 We've already mentioned a couple of useful components in
 [](chapter_03-describing-your-database) for expanding simple database
-content into objects, we'll explain how this works and how to add your
+content into objects, now we'll explain how this works and how to add your
 own inflations. We'll also cover storing data that isn't in the
 database, adding re-usable query methods and validation.
 
@@ -42,29 +42,49 @@ database, adding re-usable query methods and validation.
 
 The data we store in databases is generally simple, or scalar data,
 strings, numbers, timestamps, IPs. The DBIx::Class featues we've seen
-so far will extract this data into an object representing a single Row
-or Result. The actual content returned by the accessors is however
-still the same simple data. We can add *Inflation/Deflation*
-components to our Result classes to convert the data to and from
-objects.
+so far will extract this data into an object representing a single
+Row. The actual content returned by the accessor methods is however
+still the same simple data. To turn it into more useful objects we can
+add *InflateColumn* components to our Result classes to convert the
+data to and from objects.
 
-We can add any inflation/deflation functionality to our Result class
-by using the `inflate_column` class method:
+In
+[](chapter_03-describing-your-database#getting-started-the-user-class)
+we use the existing InflateColumn component for Authen::Passphrase, to
+automatically hash passwords as we store them in the database. It also
+adds a method to verify a password entered by the user. If you can't
+find an existing InflateColumn class that suits your data, you can
+create your own inflation using the `inflate_column` Result class
+method.
 
-This example uses the
-[Email::Address](http://metacpan.org/module/Email::Address) module,
-you will need to install it from CPAN to run this snippet.
+For one-off requirements, `inflate_column` can be used directly in the
+Result class that needs it, no need to create a separate module. This
+example shows how to use it to turn a string containing an email
+address into an object based on the
+[Email::Address](http://metacpan.org/module/Email::Address) class,
+which will allow checking if the entered email is valid, and extract
+components such as the username and the host. To try out this example,
+install the Email::Address module from CPAN first.
 
-    ## Add to the existing MyBlog/Schema/Result/User.pm
-    
+Edit the existing `MyBlog/Schema/Result/User.pm` and add to the bottom
+under the relationship definitions:
+
     use Email::Address;
     
     __PACKAGE__->inflate_column('email', {
       inflate => sub { my $emailstring = shift; return Email::Address->parse($emailstring); },
       deflate => sub { my $emailobj = shift; return $emailobj->address(); },
     });
+    
+We assign two code references to the `email` column. The `inflate`
+code is run whenever we need to turn the email string into an object,
+for example when using the `$user->email` accessor method to fetch the
+email column. The `deflate` code is run on `create` and `update` to
+convert a provided Email::Address object into a suitable string to
+store in the database.
 
-The code reference for the `deflate` value is run when creating a new user, if you supply an object for the `email` value, for example:
+This example shows `deflate` in action, supplying an Email::Address
+object as the `email` column value:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
@@ -80,12 +100,20 @@ The code reference for the `deflate` value is run when creating a new user, if y
       email => Email::Address->parse('fred@bloggs.com'),
     });
     
-Using the deflator is not compulsory, we can still pass in a string
-value to store, which will bypass the deflate code.
+The deflator can be bypassed if you don't want or need to create an
+extra object when supplying the email value, just provide a string
+instead of the object. Deflation is only applied to array references,
+hash references or objects, plain scalars and scalar references are
+ignored and passed through directly to the rest of the DBIx::Class
+code.
 
-The code reference supplied as the `inflate` value is run when you
-call the Row accessor `email`, so now if we fetch a user, we can
-examine the email address more closely:
+NOTE: Scalar references are ignored by deflate as they are used to
+send literal (unquoted) pieces of SQL to the database, for example
+`mydatetimefield => \'now()'` will send `now()` instead of `'now()'`
+as the value for the field `mydatetimefield`.
+
+The `inflate` in action example shows how to `find` the user row as
+normal, and use the `email` accessor to get an Email::Address object:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
@@ -101,25 +129,34 @@ examine the email address more closely:
     ## We can still get the original data:
     print $freduser->get_column('email');
       
+The inflator can also be bypassed, to get the database contents
+directly, use the `get_column` method on the Row object.
+
+    $user->get_column('email');
+
 To re-use your Inflation/Deflation code, it can be made into a
 component module and added to each Result class as needed, using the
 `load_components` class method already seen in Chapter 3. Generic
-re-usable components go into the `DBIx::Class::InflateColumn`
-namespace, components in other namespaces can be loaded by prepending
-a `+` to the name. So we can make this a MyBlog component:
+re-usable components can be put into the `DBIx::Class::InflateColumn`
+namespace and shared on CPAN for everyone else to use. Components
+which are more for local use only can use your application namespace,
+these can be loaded by prepending a `+` to the class name. So we can
+make this a MyBlog component:
 
-    package MyBlog::Schema::InflateColumn::Email;
+    package MyBlog::InflateColumn::Email;
     
     use strict;
     use warnings;
     
     use Email::Address;
     
+    ## Extend register_column to add the inflate/deflate methods for
+    ## each column with a true value for the 'is_email' key
     sub register_column {
       my ($self, $column, $info, @rest) = @_;
       $self->next::method($column, $info, @rest);
  
-      return unless defined $info->{'is_email'};
+      return unless $info->{'is_email'};
       
       $self->inflate_column(
         $column => {
@@ -135,19 +172,24 @@ a `+` to the name. So we can make this a MyBlog component:
       );
     }
     
-Note how components have to hook into `register_column` when adding
+Note how components can hook into `register_column` when adding
 inflate/deflate, and then somehow decide which columns to add the code
-to. The name of the column and the info hash used in `add_columns` are
-passed as parameters. We let the normal `register_column` activities
+to. This is usually done by having the user of the component fill in a
+true value for a new column info key, such as the `is_email` in this
+case. You may want to localise the key name to avoid conflicts with
+other components, eg to `is_myblog_email`. 
+
+`register_column` is called once for each column created in
+`add_columns` and is passed the name of the column and the column info
+hashref as parameters. We let the normal `register_column` activities
 happen by calling the mro method dispatching call `next::method`, then
 run the extra code to assign the inflate/deflate code to the chosen
 column.
 
-Now we can use this instead:
+Now we can add the component to `MyBlog/Schema/Result/User.pm` instead
+of calling `inflate_column`:
 
-    ## in MyBlog/Schema/Result/User.pm
-
-    __PACKAGE__->load_components('+MyBlog::Schema::InflateColumn::Email', 'InflateColumn::Authen::Passphrase'); 
+    __PACKAGE__->load_components('+MyBlog::InflateColumn::Email', 'InflateColumn::Authen::Passphrase'); 
 
     __PACKAGE__->add_columns(
        # ...
@@ -165,20 +207,28 @@ Now we can use this instead:
 
 With the exact same results when using the resulting User objects.
 
-Note that inflation and deflation code is only run for objects and
-references, plain scalar values and undef bypass the code completely.
+NOTE: The order of the components in the `load_components` call will
+determine which order they are run, the first-listed components are
+run first.
 
-## More column data filtering and extending
+## Filtering any column data in and out
 
 Inflation and deflation are one way to change or adapt the data on the
 way into or out of the database. Another component that can be used to
 change the content is the provided `FilterColumn` component. This is
 used to arbitrarily change any data, not just references and objects.
 
+Filtering is not built into the `Core` component, so first we need to
+load the `FilterColumn` component itself, then we can use the
+`filter_column` class method to provide `filter_to_storage` and
+`filter_from_storage` code references for the data conversion. In this
+example we filter the `username` data to remove any extra whitespace
+at either end:
+
     ## in MyBlog/Schema/Result/User.pm
 
     __PACKAGE__->load_components('FilterColumn', 
-      '+MyBlog::Schema::InflateColumn::Email', 
+      '+MyBlog::InflateColumn::Email', 
       'InflateColumn::Authen::Passphrase'
     ); 
 
@@ -191,21 +241,29 @@ used to arbitrarily change any data, not just references and objects.
       filter_from_storage => sub {},
     });
 
-FilterColumn, unlike the InflateColumn code, is also passed the Row
-object, giving the code access to other values in the same row.
+The `filter_column` code refs, unlike the `inflate_column` code, are
+also passed the Row object, giving the code access to other values in
+the same row.
 
 This is one way to remove any accidental whitespace at the beginning
 and end of a string value such as the `username` column, before saving
 it to the database.
 
-Another way would be to rename the actual accessor method for the
-column, and write your own. This code can do anything you like, and
-also gets the Row object.
+## Overriding the column accessors
 
-    ## in MyBlog/Schema/Result/User.pm
+Instead of using `filter_column` this could also be done by replacing
+the accessor method. By default the accessor methods are named after
+the column names defined in `add_columns`, we can use the `accessor`
+key to ask for a different method name. With the accessor renamed, we
+can write the actual method named after the column ourselves, and call
+internally on the new actual accessor. This code can do anything you
+like, and is passed the Row object and any value being assigned.
+
+Replace the `username` accessor in `MyBlog/Schema/Result/User.pm` with
+some code to trim the data passed in:
 
     __PACKAGE__->load_components(
-      '+MyBlog::Schema::InflateColumn::Email', 
+      '+MyBlog::InflateColumn::Email', 
       'InflateColumn::Authen::Passphrase'
     ); 
 
@@ -236,16 +294,16 @@ Unlike FilterColumn and InflateColumn, this code will only have an
 affect when the accessor method itself is called. It will not be run
 when the `create` or `new` methods are called. To achieve the
 equivalent functionality we'll also have to overload the `new`, and
-`update` methods, for examples see the section
-[](chapter_06-setting-default-values).
+`update` methods, we'll show this later in the section
+[](chapter_06-writing-your-own-components).
 
 ## Your turn, encode the user's real names
 
-Several ways to extend the Result class and change the database values
-going in and out of the storage layer. For this exercise you're going
-to obfuscate the user's stored `realname` in the database, preferably
-in such a way that it can be converted back to the actual value when
-retrieved.
+Now we've seen several ways to extend the Result class and change the
+database values going in and out of the storage layer. For this
+exercise you're going to obfuscate the user's stored `realname` in the
+database, preferably in such a way that it can be converted back to
+the actual value when retrieved.
 
 You can implement this one however you like, the test will merely
 verify that the plain stored value in the database is not the same
@@ -318,7 +376,7 @@ You can find this test in the file **encode_real_name.t**.
 
 ## Methods on Row and ResultSet objects
 
-To add methods to your Row object to perform calculations or
+To add your own methods to your Row object to perform calculations or
 manipulations on your data at runtime, we just need to add the methods
 to the Result class, which the Row object inherits from.
 
@@ -337,12 +395,14 @@ above. We can just add our own separate method:
     ); 
 
     sub get_email_host {
-      my ($row) = @_;
+      my ($self) = @_;
       
-      return Email::Address->parse($row->email)->host;
+      return Email::Address->parse($self->email)->host;
     }
-    
-And call it on the User object:
+
+Here `$self` is the Row object, so you can query other column values
+or even related tables if needed. Now we just `find` a user object to
+call it on:
 
     my $freduser = = $schema->resultset('User')->find({
       username => 'fredbloggs'
@@ -350,18 +410,22 @@ And call it on the User object:
       key => 'username_idx',
     });
     
-    ## The email accessor now returns an Email::Address object:
+    ## This is still a string:
+    print $freduser->email, "\n";
+    
+    ## get_ema_host returns the hostname from the email:
     print $freduser->get_email_host, "\n";
 
 Adding methods to ResultSets is also a useful technique to make
 reusable and chainable queries. By default resultsets are created from
-the `DBIx::Class::ResultSet` class. To replace this with your own
-class and methods, write a class for the corresponding Result class,
-in the _ResultSet_ namespace. 
+the `DBIx::Class::ResultSet` class. To extend this with your own class
+and methods, write a class with the same name as the corresponding
+_Result_ class, but change the namespace to _ResultSet_.
 
-We can store our PostsAndUser query from the
-[](chapter_05-real-or-virtual-views-and-stored-procedures)
-chapter as a method instead of a view:
+We can replace our literal SQL-based PostsAndUser view from the
+[](chapter_05-real-or-virtual-views-and-stored-procedures) chapter,
+and store it as a DBIx::Class created query in a ResultSet
+method. Create a new file as `MyBlog/Schema/ResultSet/Post.pm`:
 
     package MyBlog::Schema::ResultSet::Post;
     
@@ -385,7 +449,11 @@ chapter as a method instead of a view:
     
     1;
     
-Now the query can be assembled and run by DBIx::Class on demand, to try it out:
+This new file will be automatically loaded as the ResultSet class for
+the Post ResultSource, by the `load_namespaces` method in our Schema
+class.
+    
+The query can now be assembled and run by DBIx::Class on demand, to try it out:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
@@ -400,8 +468,8 @@ the Row objects, for the convenience of keeping all the data
 together. As Row objects inherit from our Result classes, we can add
 accessors for other data there. DBIX::Class uses the
 [Class::Accessor::Grouped](http://metacpan.org/module/Class::Accessor::Grouped)
-module underneath, so so add our own accessors we can just use the
-inherited class methods:
+module underneath, so to add our own accessors we can just use the
+inherited class methods, for example `mk_group_accessors`:
 
 
     package MyBlog::Schema::Result::Email;
@@ -426,7 +494,7 @@ And then just use the method to read and write the value:
     
 This can of course also be done with
 [Moose](http://metacpan.org/module/Moose) attributes instead. As
-DBIx::Class implements its own `new` method, we need to use
+DBIx::Class implements its own `new` method, we'll need to add
 [MooseX::NonMoose](http://metacpan.org/module/Moose) as well:
 
     package MyBlog::Schema::Result::Email;
