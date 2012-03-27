@@ -326,7 +326,7 @@ object, and insert it into the `user_id` column in the Posts
 table. The `$fred` object must be a User row that exists in the
 database.
     
-In true perlish spirit, this can also be written as:
+In true perlish TIMTOWTDI spirit, this can also be written as:
 
     $fred->posts->create({
         title => 'My first post!',

@@ -44,3 +44,8 @@ Database design = describe issue with user->roles.. post as editor, post as comm
 Test markdown output!? templates!? (psuedopod template?)
 
 
+--
+DateTime, timestamps - used in chapter 5, but not used or introduced before that, should be in Chapter 4 where we create a Post object for the first time.. or even in Ch 3?
+
+Ch 6 should assume DateTime cols already introduced.
+

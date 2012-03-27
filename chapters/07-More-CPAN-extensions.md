@@ -12,6 +12,10 @@ Versioning, Migrating and Deploying
 
 Tools that will help you install upgrades to your database structure and content.
 
+
+Auditing, previewing data
+-------------------------
+
 Replcation
 ----------
 

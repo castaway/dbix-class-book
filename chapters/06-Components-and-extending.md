@@ -525,14 +525,17 @@ for more details.
 ## Setting default values
 
 Our `created_date` column in the Post table is set up to take a
-`datetime` value, and currently we have to always supply the timestamp
-to store. We can however default this value to the current date&time
-in several way. 
+`datetime` value, currently we have to always supply the timestamp to
+store for every create post. As this is the date of post creation, it
+would be useful to be able to just ignore that field and have it
+default to the current datetime. There are a number of ways to do this
+with DBIx::Class.
 
-One straight-forward way is to let the database itself supply the
-value, to include this in the DDL SQL created when running the
-`deploy` method, add the `default_value` key to your column info data
-in the Result class:
+One straight forward way is to let the database itself supply the
+value using the SQL keyword `DEFAULT`. We can have DBIx::Class'
+`deploy` method (as described in [](chapter_03-describing-database))
+output this keyword by adding the `default_value` key to the column
+info data in the Result class:
 
     package MyBlog::Schema::Result::Post;
 
@@ -544,21 +547,41 @@ in the Result class:
       retrieve_on_insert   => 1,
     }
     );
-    
-`CURRENT_TIMESTAMP` should be converted by
-[SQL::Translator](http://metacpan.org/module/SQL::Translator) into the
-correct incantation for your particular database (if not please help
-us fix it!). `retrieve_on_insert` is used to ensure that this created
-value is fetched and stored in any new Row objects after insertion
-into the database.
 
-We can also have the code supply the timestamp value, which gives us
-more flexibility about when the value is supplied or updated. First
-install the component
-[DBIx::Class::TimeStamp](http://metacpan.org/module/DBIx::Class::TimeStamp)
-from CPAN. Add it as a component to the `Post` Result class, and use
-the `set_on_create` and `set_on_update` column info keys to control
-when the values are set:
+We use a scalar reference here to indicate that the content should be
+sent literally to the database, and not turned into a quoted string
+value. `CURRENT_TIMESTAMP` is the correct way to indicate the current
+date and time in the syntax of some relational databases, it will be
+converted (by
+[SQL::Translator](http://metacpan.org/module/SQL::Translator)) into
+the correct incantation for your particular
+database[^pleasehelp]. 
+
+The `retrieve_on_insert` key has been added to instruct DBIx::Class to
+fetch the default value from the database and store it in the Row
+object after the row is created.
+
+An alternative method is to supply the value for the timestamp field
+in Perl, automatically adding it to the Row object just before it is
+sent to the database. This gives us more flexibility about if and when
+the value is supplied or updated. There is a separate component on CPAN which provides this functionality, [DBIx::Class::TimeStamp](http://metacpan.org/module/DBIx::Class::TimeStamp). Install it from CPAN then add it as a component to the `Post` Result class:
+
+    package MyBlog::Schema::Result::Post;
+    
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::Core';
+    
+    __PACKAGE__->load_components(qw/TimeStamp/);
+
+Note that we have replaced the existing `InflateColumn::DateTime`
+component, the TimeStamp loads the DateTime component for you, as it
+uses that functionality itself.
+
+Now edit the `add_columns` call to include the new keys
+`set_on_create` and `set_on_update` in the column info hashref for the
+`created_on` field to control when the values are set:
 
     package MyBlog::Schema::Result::Post;
 
@@ -571,10 +594,17 @@ when the values are set:
     }
     );
 
-This time we don't need the `retrieve_on_insert` as the value is set
-into the object from the Perl code.
+As implied by the key names, `set_on_create` is set to a true value to
+have TimeStamp provide a datetime value when a new Row is `create`d,
+and `set_on_update` controls whether TimeStamp will update the value
+in the field when updates are made to the Row. As we want the field to
+contain only the datetime the Post was created, we only set the
+former. This time we don't need the `retrieve_on_insert` as the value
+is set into the object from the Perl code, and doesn't need fetching
+from the database.
 
-In either case we `create` new Post entries just by supplying all the
+After choosing a method to use and setting up the Post Result class,
+we now `create` new Post entries just by supplying all the
 required other needed values and leaving out the `created_date` value:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
@@ -588,17 +618,23 @@ required other needed values and leaving out the `created_date` value:
     });
     
 You'll notice that out of the five columns for the posts table we can
-skip three, `id` as its an auto increment primary key and will be supplied by
+skip three, `id` as it is an auto increment primary key and will be supplied by
 the database, `user_id` as we're creating a related entry and get the
-value from the user object, and now `created_date` as its defaulted.
+value from the user object, and now `created_date` as it is defaulted.
 
 To default any type of value in your Perl code, you can use the
 component
 [DBIx::Class::DynamicDefault](http://metacpan.org/module/DBIx::Class::DynamicDefault)
-from CPAN. Here's how to implement the default our `created_date` value
-using this instead of DBIx::Class::TimeStamp:
+from CPAN. (Which is used by the TimeStamp component
+underneath). Here's how to implement the default our `created_date`
+value using this instead of DBIx::Class::TimeStamp:
 
     package MyBlog::Schema::Result::Post;
+
+    use strict;
+    use warnings;
+    
+    use base 'DBIx::Class::Core';
     
     use DateTime;
 
@@ -615,17 +651,27 @@ using this instead of DBIx::Class::TimeStamp:
       return DateTime->now();
     }
 
+DynamicDefault allows you to supply a code reference or the name of a
+method to call when updating or creating a Row. The method will be
+called on the Row object itself, so you can write it in the Result
+class.
+
 
 ## Writing your own components
 
-We've looked at several ways of extending your DBIx::Class classes
-using existing components, but what if you don't find a component that
-does what you need? Make sure you've checked CPAN first, and ask in
-the IRC community channel "#dbix-class" at irc.perl.org.
+Back in our Email::Address example in the section
+[](chapter_06-turning-column-data-into-useful-objects) we showed how
+to create your own component to apply column inflation/deflation to
+several Result classes. Now we take a look at some more methods that
+are commonly extended to add more functionality.
+
+Before building your own component make sure you've checked on CPAN to
+see if there is already a component that does what you need, and ask
+in the IRC community channel "#dbix-class" at irc.perl.org.
 
 If you've done all that and you'd still like to write your own then
 you first need to decide which parts of the process of creating,
-inserting, updateing and deleting data you want to extend. We'll look
+inserting, updating and deleting data you want to extend. We'll look
 at all the available Schema, ResultSource, Row and ResultSet methods
 and dicuss why you would need each one.
 
@@ -673,7 +719,6 @@ Which will now cope with this structure:
       };
       
       $schema->resultset('User')->create($userdata);
-
 
 
 ### Result class - insert
@@ -878,6 +923,4 @@ The Schema class is also available for extension or adding components,
 `register_class` for example is called for each Result class loaded by
 `load_namespaces`.
 
-
-
-## Auditing, previewing data
+[^pleasehelp]: SQL::Translator supports at least SQLite, MySQL, Postgres, SQL Server. If this doesn't work for your particular database, please contact the team on IRC or via the CPAN bug report system.
