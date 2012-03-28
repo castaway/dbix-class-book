@@ -434,7 +434,7 @@ First `connect` to the Schema class (this returns a Schema object), using a DSN[
 
     perl -MMyBlog::Schema -le'my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db"); $schema->deploy();'
 
-We will discuss [](chapter_07-versioning-migrating-and-deploying) more
+We will discuss [](chapter_07-deploying-versioning-and-migrating) more
 at length later when talking about how to change your schema without
 having to destroy your existing data.
 

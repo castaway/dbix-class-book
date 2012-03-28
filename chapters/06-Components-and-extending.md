@@ -49,7 +49,7 @@ add *InflateColumn* components to our Result classes to convert the
 data to and from objects.
 
 In
-[](chapter_03-describing-your-database#getting-started-the-user-class)
+[](chapter_03-getting-started-the-user-class)
 we use the existing InflateColumn component for Authen::Passphrase, to
 automatically hash passwords as we store them in the database. It also
 adds a method to verify a password entered by the user. If you can't
@@ -533,7 +533,7 @@ with DBIx::Class.
 
 One straight forward way is to let the database itself supply the
 value using the SQL keyword `DEFAULT`. We can have DBIx::Class'
-`deploy` method (as described in [](chapter_03-describing-database))
+`deploy` method (as described in [](chapter_03-describing-your-database))
 output this keyword by adding the `default_value` key to the column
 info data in the Result class:
 
