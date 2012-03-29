@@ -49,3 +49,10 @@ DateTime, timestamps - used in chapter 5, but not used or introduced before that
 
 Ch 6 should assume DateTime cols already introduced.
 
+##
+Everywhere - change named metacpan links to notes? eg DBIx::Class::DeploymentHandler[^dbicdh]
+[dbicdh]: [](http://metacpan.org/module/DBIx::Class::DeploymentHandler)
+
+##
+Note at the beginning/intro/download section, that examples are based on unix shell scripts.. how to write for Windows?
+
