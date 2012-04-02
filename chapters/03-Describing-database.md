@@ -381,7 +381,7 @@ Note that the original name will still need to be used when creating new rows or
 
     Accessor for a single matching row that contains our _primary key_. Very similar to `has_one`, but creates a `left` type join as the related row may not exist at all.
 
-### Exercise: The Post class
+### Your turn, The Post class
 
 The posts table looks like this in mysql:
 

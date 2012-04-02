@@ -67,13 +67,13 @@ the `posts` table, pass an arrayref with just that name:
 
 ### Versions and upgrades
 
-Later on after deploying and using this database schema, later on we
-add some features and need to add or change columns on the existing
-tables, as an example we'll add a new column to the `User` table,
+After deploying and using this database schema, we may later want to
+make some changes and add or change columns on the existing tables. As
+an example we'll add a new column to the `User` table,
 `dateofbirth`. Before we actually start adding the new column, we need
 to setup our existing Schema class to support versioning. Back in
-[](chapter_03-the-schema-class) we didn't set a `VERSION`, we add one
-now to define the initial version:
+[](chapter_03-the-schema-class) we didn't set a `$VERSION` for our
+Schema, we add one now to define the initial version:
 
     package MyBlog::Schema;
     use warnings;
@@ -90,7 +90,7 @@ The tools for managing database versioning create and manage extra
 tables in your database to store information about the version of the
 Schema that is installed. To complete the setup for the initial
 version, install
-[DBIx::Class::DeploymentHandler](http://metacpan.org/module/DBIx::Class::DeploymentHandler)
+DBIx::Class::DeploymentHandler[^DBICDH]
 from CPAN, then create a Perl script to create the SQL files and
 install the database including versioning tables:
 
@@ -123,8 +123,11 @@ contents of that directory, we can copy it to whichever machine we
 want to install this database application on, and run `install`.
 
 You can find a copy of this in the downloadable code, under
-_bin/install.pl_. To see what tables this creates, run it twice and then
-look in the database using the `sqlite3` binary:
+_bin/install.pl_. To see what tables this creates, run it with
+`--setup` to produce the SQL files, and look in the _sql_/
+directory. Running the script a second time without the `--setup`
+argument will create the database including the versioning tables. You
+can then review these using the `sqlite3` binary:
 
     perl bin/install.pl --setup
     perl bin/install.pl
@@ -132,7 +135,7 @@ look in the database using the `sqlite3` binary:
     sqlite3 t/var/myblog.db ".dump"
     
 Now the setup is done, we can actually add the new column to `User.pm`
-and update the VERSION in the `Schema.pm`:
+and update the `$VERSION` in the `Schema.pm`:
 
     package MyBlog::Schema;
     
@@ -195,13 +198,28 @@ together with the versions it should convert from and to:
 
     }
 
-We create the SQL by adding the two version parameters and re-running
-the script:
+We create the SQL containing ALTER TABLE statements by using the two
+new version script arguments and re-running the script:
 
     perl bin/install.pl --setup --from='0.01' --to='0.02'
 
+Then to upgrade the database:
+
     perl bin/install.pl --from='0.01' --to='0.02'
-    
+
+DeploymentHandler can do much more, including allowing the user to
+supply Perl scripts to be run during upgrades to migrate the actual
+data around, useful for example if a table gets split out into several
+related tables.
+
+## Your turn, create VERSION 0.03, adding a Comments table
+
+For this you will need to create a new Result class from scratch like
+the Post class back in [](chapter_03-your-turn-the-post-class), then
+add appropriate code to the test below, which you can find in the file
+**upgrade_to_comments.t**.
+
+TODO
     
 Auditing, previewing data
 -------------------------
@@ -229,3 +247,4 @@ How to use DBIx::Class as a model in your Catalyst website.
 
 
 [SQLT]: [](http://metacpan.org/module/SQL::Translator)
+[DBICDH]: [](http://metacpan.org/module/DBIx::Class::DeploymentHandler)
