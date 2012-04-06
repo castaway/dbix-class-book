@@ -29,14 +29,13 @@ Examples given in this chapter will work with the one-file database [SQLite](htt
 Introduction
 ------------
 
-Choosing to use a database is the first step, the next part is harder,
-how to arrange all the pieces of data you need into tables, to
-optimise the performance of inserting and retrieving data. There is no
-perfect answer, as it will always depend on the uses your application
-will make of it. We'll show some techniques on how to consider your
-data and its uses, and divide it into tables and related tables. We'll
-also touch on some formal definitions, and show some places to get
-some more help if you're still stuck.
+Choosing to use a database is the first step. The next part is harder; you must
+arrange all the pieces of data you need into tables, to optimise the
+performance of inserting and retrieving data. There is no perfect design, as
+the database will always depend on the uses your application will make of it.
+We'll show some techniques on how to consider your data and its uses, and
+divide it into tables and related tables. We'll also touch on some formal
+definitions, and show some places to get some more help if you're still stuck.
 
 We are using the example of writing a blogging software or website
 throughout this book. This example is chosen as hopefully all readers
@@ -244,13 +243,13 @@ database file which will be created if it does not exist yet:
 
 ## Separate non-related data, flag fields
 
-Joe's written two posts, and Fred wrote one, now Fred comes back and
-makes a comment on Joe's first post. We could store our comments in
-the posts table, and give them all the same fields as the posts,
-however we'd still need a way to decide which items were posts and not
-comments, so we don't accidentally display comments as full posts.
+Joe's written two posts, and Fred wrote one. Now Fred comes back and makes a
+comment on Joe's first post. We could store our comments in the posts table,
+and give them all the same fields as the posts--however we'd still need a way
+to decide which items were posts and not comments, so we don't accidentally
+display comments as full posts.
 
-One way to do this is to add a flag field to the table, for example a
+One way to do this is to add a flag field to the table, in this case a
 boolean (true/false) field named `is_post`. Our comments also need to
 link back to the posts they are a comment on, so we'll add the
 `comment-on` field. For posts of course this is irrelevant, so we'll
@@ -279,7 +278,7 @@ code to calculate for example, the number of comments by each user, we
 will also have to add a filter.
 
 As a rule of thumb, if the majority of your queries on the data will
-need to specify the filter, then its better to just separate the
+need to specify the filter, then it's better to separate the
 comments into their own table instead.
 
 +----+---------+-------+-----------------+--------+-------------+
@@ -312,15 +311,15 @@ as we don't think we'll need to summarise comments.
 You'll notice that we haven't yet looked at what happens to the data
 in the user table when we add comments. We have the `role` field which
 identifies which roles each user has. The original idea was to list
-their roles for each article, `poster` or `commenter`, but we've lost
+the roles for each article, `poster` or `commenter`, but we've lost
 that by dumping it into the user table.
 
-Each user can have multiple roles on each post, to store this in our
-database, we need a "many to many" relation (many users to many
-roles). Rather than putting this in either the users or posts tables,
-we can create an extra table to join the two together. We can also
-store the roles themselves in their own table and link their id in as
-well, or just use the string values.
+Each user can have multiple roles on each post. To store this in our database,
+we need a "many to many" relation (a user can have many roles and a role can
+belong to many users). Rather than putting this in either the users or posts
+tables, we can create an extra table to join the two together. We can either
+store the roles themselves in their own table and link their id in as well, or
+just use the string values in lieu of foreign keys.
 
 +---------+---------+-----------+
 | user_id | post_id | role      |
@@ -361,16 +360,15 @@ avoid it by declaring that the roles are a hierarchy, that is that all
 
 ## SQL break, SELECT ... FROM
 
-Getting data from one table is straight-forward, we use a `SELECT`
+Getting data from one table is straight-forward. We use a `SELECT`
 statement, for example to get user joe's information:
 
     SELECT id, name, username, password, email
     FROM users
     WHERE username = 'joeb';
-    
-To get the data from multiple tables, for example a user and their
-posts, we need to use the `JOIN` keyword, and join the tables on the
-unique values we created.
+
+To get the data from multiple tables--for example a user and their
+posts--we need to use the `JOIN` keyword to connect the tables with the keys which identify relationships between them.
 
     SELECT id, name, username, password, email, posts.title, posts.content, posts.summary, posts.created
     FROM users
