@@ -11,7 +11,7 @@ Chapter summary
 This chapter describes how to create a set of Perl modules using
 DBIx::Class that describe your database tables, indexes and
 relationships. The examples used will be based on a made-up schema
-representing a blog, we will introduce basic User and Post tables.
+representing a blog. We will introduce basic User and Post tables.
 
 Pre-requisites
 --------------
@@ -60,16 +60,16 @@ of classes are needed:
 contain and request all other objects representing the database
 content. The schema object is created with connection information for
 the particular database it will be talking to. The class can be
-re=used to connect to a different instance of the database, with a
+re-used to connect to a different instance of the database, with a
 different connection string, if needed.
 
 * A **Result class** should be defined for each table or view to be
-accessed, this is used by DBIx::Class to represent a row of results
+accessed. this is used by DBIx::Class to represent a row of results
 from a query done via that particular table or view. Methods acting on
 a row of data can be added here.
 
 Other types of classes can be used to extend the functionality of the
-schema, these will be introduced later.
+schema. These will be introduced later.
 
 <a name="#a-word-about-namespaces"></a>
 
@@ -102,7 +102,7 @@ singular, as it respresents a single result, or row of the query.
 The Schema class
 ----------------
 
-The basic Schema class is fairly simple, it needs to inherit from
+The basic Schema class is fairly simple. It needs to inherit from
 **DBIx::Class::Schema** and call a class method to load all the
 associated Result classes.
 
@@ -115,13 +115,13 @@ associated Result classes.
 
     1;
 
-`load_namespaces` does the actual work here, it finds and loads all
-the files found in the `Result` subnamespace of your schema, see [](chapter_03-a-word-about-module-namespaces) above. It can also be
-configured to use other namespaces, or load only a subset of the
-available classes, by explicitly listing them.
+`load_namespaces` does the actual work here. It finds and loads all
+the files found in the `Result` subnamespace of your schema (see [](chapter_03-a-word-about-module-namespaces) above). It can also be
+configured to use other namespaces or load only a subset of the
+available classes by explicitly listing them.
 
 The loaded files are assumed to be actual **Result classes** (see
-below) if anything else is found in the subnamespace, the load will
+below). If anything else is found in the subnamespace, the load will
 complain and die.
 
 The Result class
@@ -142,7 +142,7 @@ information about the schema, for example to iterate through the
 known columns on a table.
 
 Result classes are only needed for each data source you need to access
-in your application, you do not need to create one for every table and
+in your application. You do not need to create one for every table and
 view in the database.
 
 Result classes should inherit from
@@ -228,25 +228,25 @@ Now you can add lines describing the columns in your table.
 
     8. __PACKAGE__->add_columns(
     9.     id => {
-    10.        data_type => 'integer',
+    10.        data_type         => 'integer',
     11.        is_auto_increment => 1,
     12.    },
     13.    realname => {
     14.      data_type => 'varchar',
-    15.      size => 255,
+    15.      size      => 255,
     16.    },
     17.    username => {
     18.      data_type => 'varchar',
-    19.      size => 255,
+    19.      size      => 255,
     20.    },
     21.    password => {
-    22.      data_type => 'varchar',
-    23.      size => 255,
+    22.      data_type          => 'varchar',
+    23.      size               => 255,
     24.      inflate_passphrase => 'rfc2307',
     25.    },
     26.    email => {
     27.      data_type => 'varchar',
-    28.      size => 255,
+    28.      size      => 255,
     29.    },
     30. );
 
@@ -256,11 +256,11 @@ Now you can add lines describing the columns in your table.
 - Line 8
 
 `add_columns` is called to define all the columns in your table that
-you wish to tell DBIx::Class about, you may leave out some of the
-table's columns if you wish. 
+you wish to tell DBIx::Class about. You may leave out some of the
+table's columns if you wish.
 
 The `add_columns` call can provide as much or little description of the
-columns as it likes, in its simplest form, it can contain just a list
+columns as it likes. In its simplest form, it can contain just a list
 of column names:
 
     __PACKAGE__->add_columns(qw/id realname username password email/);
@@ -331,7 +331,7 @@ _relationship_ methods.
 
 To describe a _one to many_ relationship we call the `has_many`
 method. For this one, the `posts` table has a column named
-`user_id` that contains the _id_ of the `users` table.
+`user_id` that contains the _id_ of a row in the `users` table.
 
 The first argument, `posts`, is a name for the relationship, this is
 used as an accessor to retrieve the related items. It is also used
@@ -349,7 +349,7 @@ on.
 - Data types
 
     The `data_type` field for each column in the `add_columns` is a free
-text field, it is only used by DBIx::Class when deploying (creating
+text field. It is only used by DBIx::Class when deploying (creating
 tables) the schema to a database. At that point `data_type` values
 are converted to the appropriate type for your database by
 [SQL::Translator](http://search.cpan.org/perldoc?SQL::Translator).
