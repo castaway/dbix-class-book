@@ -17,12 +17,10 @@ the IRC channel, #dbix-class on irc.perl.org, or tweet @dbix_class, to
 check if any have been replaced by newer modules or techniques.
 
 
-Deploying, Versioning and Migrating
------------------------------------
+Installing, Versioning and Migrating
+-------------------------------------
 
-# Tools that will help you install upgrades to your database structure and content.
-
-### Deploying tables, views and indexes
+### Installing tables, views and indexes
 
 So far we've looked at how to describe the database layout in Perl
 classes and how to use it to interact with data in the database
@@ -221,8 +219,144 @@ add appropriate code to the test below, which you can find in the file
 
 TODO
     
-Auditing, previewing data
--------------------------
+Tracking data changes
+---------------------
+
+Now we have the database installed and maintained, we get down to the
+business of putting data in it. Some applications need to track
+changes to the content, you may want to be able to look at historical
+values, for example previous content of webpages or posts. A more
+likely use for this than our blog app is a Wiki[^Wiki] or CMS[^CMS]
+type application.
+
+Luckily, there is already a module which will help out by creating a
+set of paralell tables, two for each existing source table you want to
+track changes in. It only tracks changes using transactions, each is
+assigned a unique changeset identifier. To try this out, install the
+DBIx::Class::Journal[^Journal] module from the CPAN.
+
+Let's update our Blog schema to track changes to the Posts table
+automatically, edit the _MyBlog/Schema.pm_ file:
+
+    package MyBlog::Schema;
+    use warnings;
+    use strict;
+    
+    use base 'DBIx::Class::Schema';
+ 
+    __PACKAGE__->load_components(qw/Schema::Journal/);
+    __PACKAGE__->journal_sources([qw/ Post /]);
+
+    __PACKAGE__->load_namespaces();
+    
+    1;
+
+We've added the Journal component, and used the `journal_sources`
+class method to instruct it to only track changes to the Post table
+data.
+
+To setup an initial deployment of the journalling tables for our
+existing tables and data, we need to run the `bootstrap_journal`
+method just once. This will import any existing Posts into the new
+tables so that we have a starting point to base new changes on top of.
+
+We can add this to our script for DeploymentHandler in the install
+section. If you skipped the [](chapter_07-versions-and-upgrades)
+section above, you can find the script in the _bin/install.pl_ file.
+
+    if($setup) {
+      $dh->prepare_install;
+    } else {
+      $dh->install;
+      $dh->schema->bootstrap_journal();
+    }
+
+Run the script to add the new tables, and investigate the results
+using the `sqlite3` binary:
+
+    perl bin/install.pl
+    
+    sqlite3 t/var/myblog.db ".dump"
+
+You will see four new tables. 
+
+* `changeset` to store the identifiers of each new changeset
+(transaction), which includes a `user_id` if you want to associate an
+existing user with the change
+
+* `change_log` each actual database operation in the changeset is
+recorded here with a new row, which keeps track of the order in which
+they happened.
+
+* `posts_auditlog` records the start and possible end of each posts
+row, with the id from the `posts` table mapped to a `create_id` or a
+`delete_id` changeset id.
+
+* `posts_audithistory` records all the rows of the original posts
+table, with a new row for each change. It stores the `change_id`
+against each one.
+
+Now we can insert another post for user fred, using a transaction, and
+examine the results:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    $schema->txn_do(sub {
+      my $freduser = = $schema->resultset('User')->find({
+        username => 'fredbloggs'
+      }, {
+        key => 'username_idx',
+      });
+      $schema->changeset_user($freduser->id);
+
+      $freduser->create_related('posts', {
+        title => 'Testing table content tracking',
+        post => 'Table tracking post content',      
+      });
+    });
+
+Looking in the tables we now have:
+
++=====+===========+================+================================+=============================+
+| id  |  user_id  |  created_date  | title                          | post                        |
++-----+-----------+----------------+--------------------------------+-----------------------------+
+| 1   |  1        | 2012-04-13     | Testing table content tracking | Table tracking post content |
++-----+-----------+----------------+--------------------------------+-----------------------------+
+
+Table: posts table
+
++=====+===========+=============+=====================+
+| id  | user_id   | session_id  | set_date            |
++-----+-----------+-------------+---------------------+
+| 1   | 1         |             | 2012-04-13 10:00:00 |
++-----+-----------+-------------+---------------------+
+
+Table: change_set
+
++=====+==============+========+
+| id  | changeset_id | order  |
++-----+--------------+--------+
+| 1   | 1            | 1      |
++-----+--------------+--------+
+
+Table: change_log
+
++===========+===========+====+
+| create_id | delete_id | id |
++-----------+-----------+----+
+| 1         |           | 1  |
++-----------+-----------+----+
+
+Table: posts_auditlog
+
++===========+=====+===========+================+================================+=============================+
+| change_id | id  |  user_id  |  created_date  | title                          | post                        |
++-----------+-----+-----------+----------------+--------------------------------+-----------------------------+
+| 1         | 1   |  1        | 2012-04-13     | Testing table content tracking | Table tracking post content |
++-----------+-----+-----------+----------------+--------------------------------+-----------------------------+
+
+
+Table: posts_audithistory
 
 Replcation
 ----------
