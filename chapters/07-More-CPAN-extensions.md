@@ -355,18 +355,166 @@ Table: posts_auditlog
 | 1         | 1   |  1        | 2012-04-13     | Testing table content tracking | Table tracking post content |
 +-----------+-----+-----------+----------------+--------------------------------+-----------------------------+
 
-
 Table: posts_audithistory
 
-Replcation
-----------
+If you already had data in your posts tables, you should see a
+changeset id and corresponding history and log tables for the most
+recent state of the existing data, and another set for the post entry
+we just added.
 
-How to use DBIx::Class with a master/slave database setup.
+TODO: Accessing the journalling tables/data?
 
-Candy
------
+Replcation, sharing the load
+----------------------------
 
-How to write your DBIx::Class classes using a prettier format.
+### How to use DBIx::Class with a master/slave database setup.
+
+
+Some databases, notably MySQL, come with settings to allow the data
+entered in one database, the *master* copy, to be automatically copied
+(also called 'replicated') into one or more mirror databases. This can
+be used purely for backing up data, or it can be used to share the
+load on the master database, and access speed of remote applications,
+by sending read-only operations to the copies. The copies are often
+called *slaves* or *replicants*.
+
+You can use the master database with this kind of setup quite normally
+with DBIx::Class, just connect to it in the usual way.
+
+We can also take advantage of replication by adjusting our DBIx::Class
+setup to teach it more about how our database is replicated. To do
+this we need to add some configuration to the Schema which will
+configure the Storage object.
+
+NB: The storage object is normally created for you based on the
+connection information given to the `connect` method, and the database
+type. It is used transparently to send the correct SQL statements to
+the database for you.
+
+To try out replication, you will need to install a few more modules
+from CPAN. As replication is implemented as an add-on for use when
+needed, these dependent modules are not installed by default, they are
+optional. The current dependencies are Moose[^Moose] and
+MooseX::Types[^moosextypes], for an up to date list, look at the
+optional dependencies[^replicateddeps].
+
+Getting down to the details, we can add replication settings to our
+schema at any point, or even just for particular applications or tools
+using the schema. We `clone` the Schema object and setup the new
+storage settings:
+
+    my $schema = MyBlog::Schema->clone;
+    $schema->storage_type([
+      '::DBI::Replicated' => {
+        balancer_type => '::Random',
+        balancer_args => {
+          auto_validate_every => 5,
+          master_read_weight => 1
+        },
+        pool_args => {
+          maximum_lag => 2
+        }
+      }
+    ]);
+
+    $schema->connection('dbi:mysql:mydatabase', 'mybloguser', 'myblogpasswd');
+
+    $schema->storage->connect_replicants(
+      [$dsn1, $user, $pass, \%opts],
+      [$dsn2, $user, $pass, \%opts],
+      [$dsn3, $user, $pass, \%opts],
+    );
+
+Alternately we can set the new storage settings directly on the Schema
+class, which will make them available for any use of the class in the
+application:
+
+    MyBlog::Schema->storage_type([ ... ]);
+    my $schema = MyBlog::Schema->connect( ... );
+
+    $schema->storage->connect_replicants([ ... ]);
+
+Setting this new storage class,
+`DBIx::Class::Storage::DBI::Replicated` will wrap and replace the
+existing storage. It gets passed a hashref of settings which define
+how the replication will work, briefly these are:
+
+* balancer_type
+    We have a choice of ::First or ::Random, as the names suggest, these will either return the first available replicant or a random one from the selection.
+    
+* auto_validate_every
+    The interval in seconds to validate whether the replicants are available. If any fail the test or lag more than the "maximum_lag" seconds, they are set to inactive and not used.
+    
+* master_read_weight
+    By default the master is not used to read from at all, setting this to 1 will give it the same probability to be used as the replicants.
+
+* maximum_lag
+    The number of seconds offset behind the master each replicant is allowed to be before being marked invalid / unsuable.
+    
+To put this all to use, we just need to use our schema normally. To
+enforce integrity of a particular set of transactions, use a
+transaction as described in
+[](chapter_05-preventing-race-conditions-with-transactions-and-locking).
+    
+
+A bit of Candy in your code
+---------------------------
+
+If you find the `__PACKAGE__` syntax ugly or cumbersome for defining
+your DBIx::Class classes, then there's some help for you in the shape
+of DBIx::Class::Candy[^Candy].
+
+Here's an example using it with our `User` class:
+
+    package MyBlog::Schema::Result::User;
+    
+    use DBIx::Class::Candy 
+      -autotable  => 'v1',
+      -components => [qw/InflateColumn::Authen::Passphrase/];
+    
+    primary_column => 'id' => {
+      data_type => 'integer',
+      is_auto_increment => 1,
+    };
+    
+    column 'realname' => {
+      data_type => 'varchar',
+      size => 255,
+    };
+
+    column 'username' => {
+      data_type => 'varchar',
+      size => 255,
+    };
+
+    column 'password' => {
+      data_type => 'varchar',
+      size => 255,
+      inflate_passphrase => 'rfc2307',
+    };
+
+    unique_column 'email' => {
+      data_type => 'varchar',
+      size => 255,
+    };
+    
+    has_many 'posts' => 'MyBlog::Schema::Result::Post', 'user_id';
+
+Several things to note:
+
+* Candy imports `strict` and `warnings` for you and sets the parent
+class for you.
+
+* No need to specify the table name, `users`, Candy will use your
+class name to decide what to call the table. The defaults are
+sensible, you can influence them if you need to.
+
+* You can create tables with multi-column primary keys by using the
+`primary_key` method multiple times.
+
+* `unique_column` creates a column and a unique constraint in one call.
+
+That's it, prettier code, all done.
 
 Moose
 -----
@@ -382,3 +530,6 @@ How to use DBIx::Class as a model in your Catalyst website.
 
 [SQLT]: [](http://metacpan.org/module/SQL::Translator)
 [DBICDH]: [](http://metacpan.org/module/DBIx::Class::DeploymentHandler)
+[Moose]: [] (http://metacpan.org/module/Moose)
+[moosextypes]: [](http://metacpan.org/module/MooseX::Types)
+[replicateddeps]: [](http://metacpan.org/module/DBIx::Class::Optional::Dependencies#Storage::Replicated)
