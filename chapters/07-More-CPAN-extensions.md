@@ -16,6 +16,13 @@ mentioned modules have been marked as DEPRECATED. You can also ask on
 the IRC channel, #dbix-class on irc.perl.org, or tweet @dbix_class, to
 check if any have been replaced by newer modules or techniques.
 
+Pre-requisites
+--------------
+
+As the sections in this chapter cover a varied set of techniques and
+tools, the pre-requisites will be listed with each section, if any
+exist.
+
 
 Installing, Versioning and Migrating
 -------------------------------------
@@ -367,9 +374,6 @@ TODO: Accessing the journalling tables/data?
 Replcation, sharing the load
 ----------------------------
 
-### How to use DBIx::Class with a master/slave database setup.
-
-
 Some databases, notably MySQL, come with settings to allow the data
 entered in one database, the *master* copy, to be automatically copied
 (also called 'replicated') into one or more mirror databases. This can
@@ -519,13 +523,142 @@ That's it, prettier code, all done.
 Moose
 -----
 
-How to use Moose in your DBIx::Class classes.
+Moose[^Moose] is a set of modules for writing easier OO with Perl. It
+provides useful ways of extending inherited methods such as `around`,
+`before` and `after` called method modifiers[^methodmodifiers].
 
-Catalyst
---------
+We can turn our Result classes into Moose classes, and use the method
+modifiers instead of the `$self->next::method` (mro method
+dispatching) seen back in
+[](chapter_06-turning-column-data-into-useful-objects). As DBIx::Class
+implements its own `new` method, we first have to add
+MooseX::NonMoose[^nonmoose] to enable the Result subclasses to
+work. Install it (and Moose!) from CPAN to run this example.
 
-How to use DBIx::Class as a model in your Catalyst website.
+Here's the example of extending the `new` method, from
+[](chapter_06-result-class-new), using Moose:
 
+    package MyBlog::Schema::Result::User;
+    
+    use Moose;
+    use MooseX::NonMoose;
+    
+    ## Moosey "use base" code
+    extends 'DBIx::Class::Core';
+
+    __PACKAGE__->table('users');
+    __PACKAGE__->add_columns(
+      id => {
+        ....
+      
+      }
+    );
+
+
+    around new => sub {
+      my ($orig, $class, $attrs) = @_;
+      
+      # convert input of [ [], []] to [{}, {}]      
+      my $posts = [map { +{ title => $_->[0], post => $_->[1] }} 
+        @{ $attrs->{posts} }];
+      $attrs->{posts} = $posts;
+      
+      $self->$orig($attrs);
+    }      
+      
+Note that in order to actually change the arguments of the method, you
+need to use the `around` modifier, as `after` and `before` do not have
+access to them.
+
+Webframeworks, DBIC with Catalyst
+---------------------------------
+
+DBIx::Class can be easily used as a model with several Perl
+webframeworks. Here we look at how to use it as a Model[^model] using
+the Catalyst[^catalyst] framework. This section assumes you have some
+Catalyst experience, or don't mind looking up how to use it to follow
+the code.
+
+If you don't already have Catalyst installed, trying this one out will
+take a bit of dedication. You will need to install the module
+Catalyst::Model::DBIC::Schema[^catayst-dbic] from CPAN (which will
+install Catalyst::Runtime), and also
+Catalyst::Devel[^catalyst-devel]. This may take a while, have some
+coffee, or better, dinner.
+
+Once you're done, we'll start a fresh mini-catalyst project to view
+our blog posts with. First start a new catalyst project by running the
+`catalyst.pl` script:
+
+    catalyst.pl MyBlog
+
+Now we can use the model helper installed earlier to create a Model
+class. The helper will need to be able to locate your Schema and
+Result class files, so either move/copy them into _MyBlog/lib_ or set
+the PERL5LIB[^perl5lib] environment variable.
+
+    cd MyBlog
+    script/myblog_create.pl model DB DBIC::Schema MyBlog::Schema dbi:SQLite:/path/to/myblog.db
+    
+This command runs the model helper class `DBIC::Schema` (included in
+the distribution with the Model) to create a model named `DB` for the
+schema `MyBlog::Schema` which will be set to connect to the given
+`myblog.db`. Adjust the path to match where you have a copy of the
+database file. It outputs on screen the list of files created, you can
+look at these. The most significant is _lib/MyBlog/Model/DB.pm_ which
+will be configured to use your schema classes, and contain the
+connection info given on the command-line.
+
+Now we can write some code in a Controller to extract the current
+posts (and authors) from the database and display them to the
+user. Open up the _lib/MyBlog/Controller/Root.pm_ file and add a new
+action named `all_posts` to output the posts data:
+
+    sub all_posts : Local {
+      my ($self, $c) = @_;
+      
+      ## Fetch the posts with users
+      my $posts_and_users_rs = $c->model('DB::Post')->posts_and_user;
+      $posts_and_users_rs->result_class('DBIx::Class::ResultClass::HashRefInflator');
+      
+      ## Output a simple list of the content as JSON
+      
+      my $json_content = encode_json([ $posts_and_users_rs->all()] );
+      
+      $c->response->content_type('text/plain');
+      $c->response->body($json_content);
+      
+    }
+
+We've used the `posts_and_user` method here, from back in
+[](chapter_06-methods-on-row-and-resultset-objects), which returns a
+ResultSet containing a query for all the posts and their owners. We
+also applied the HashRefInflator from
+[](chapter_05-data-set-manipulation-and-resultset-extension) to speed
+up the creation of results.
+
+The `model` method on the Catalyst context (`$c`) object will return
+an instance of the model with the given name. In the DBIC::Schema
+special case, you can supply a relative namespace, eg `DB::Post` to
+get the equivalent of `$schema->resultset('Post')`.
+
+NB: For the sake of brevity in the example we have converted the
+content to JSON directly inside the action method. For a proper
+application we should use Catalyst::View::JSON[^catalystjson] instead.
+
+We can test the results by running the catalyst application using the
+built-in command-line server, with debugging mode on:
+
+    CATALYST_DEBUG=1 script/myblog_server.pl
+    
+The server will start on port 3000, listing all the actions so you can
+check if `all_posts` appears in the list. Next connect to it with your
+browser at: `http://localhost:3000/all_posts` and you should see all
+the Posts and User data as JSON.
+
+For more comprehensive coverage of Catalyst, try the Catalyst
+tutorial[^catalysttutorial], or the Definitive Guide to
+Catalyst[^definitivecatalyst].
 
 
 [SQLT]: [](http://metacpan.org/module/SQL::Translator)
@@ -533,3 +666,14 @@ How to use DBIx::Class as a model in your Catalyst website.
 [Moose]: [] (http://metacpan.org/module/Moose)
 [moosextypes]: [](http://metacpan.org/module/MooseX::Types)
 [replicateddeps]: [](http://metacpan.org/module/DBIx::Class::Optional::Dependencies#Storage::Replicated)
+[methodmodifiers]: [](http://metacpan.org/module/Moose::Manual::MethodModifiers)
+[nonmoose]: [](http://metacpan.org/module/MooseX::NonMoose)
+[model]: The data-storage part of a "Model, View, Controller"[^mvc] based application.
+[mvc]: Model, View, Controller, see [](http://enwp.org/Model-view-controller)
+[catalyst]:[](http://catalystframework.org) Other frameworks are available!
+[catalyst-dbic]:[](http://metacpan.org/module/Catalyst::Model::DBIC::Schema)
+[catalyst-devel]:[](http://metacpan.org/module/Catalyst::Devel)
+[perl5lib]: Under linux/bash: export PERL5LIB=$PERL5LIB:$PWD/lib or similar, adjust for the location of your classes.
+[catalystjson]: [](http://metacpan.org/module/Catalyst::View::JSON)
+[catalysttutorial]: [](http://metacpan.org/module/Catalyst::Manual::Tutorial)
+[definitivecatalyst]: [](http://www.apress.com/9781430223658)
