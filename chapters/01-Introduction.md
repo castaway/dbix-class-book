@@ -184,7 +184,7 @@ Why DBIx::Class?
 
 
 [^ORM]: Object-relational Mapper, or Mapping is the technique of converting data represented in simple values, such as strings in a database, into objects containing the data and having appropriate methods to act upon it.
-[^DBI]: Perl's Database Interface, a module for standardising querying various RDBMS[^RDBMS] systems.
 [^RDBMS]: Relational Database Management Systems - databases such as Oracle, DB2, MySQL, Postgres and MS SQL Server.
+[^DBI]: Perl's Database Interface, a module for standardising querying various RDBMS[^RDBMS] systems.
 [^DML]: Data Manipulaton Language, the part of SQL which is used to add, change and remove data.
 [^CPAN]: The [Comprehensive Perl Archive Network](http://pause.cpan.org) 

@@ -59,7 +59,7 @@ this:
 Now there may be complaints about tables not existing when we try to
 run DROP TABLE statements on an empty database, but at least we will
 definitely get a fresh database from it. This is actually passed
-through to the workhorse for writing DDL SQL, SQL::Translator[^SQLT],
+through to the workhorse for writing DDL SQL, SQL::Translator [^SQLT],
 which will, if the database type supports it, also add `IF EXISTS` to
 the SQL, and only drop tables that are already there.
 
@@ -324,41 +324,41 @@ examine the results:
 
 Looking in the tables we now have:
 
-+=====+===========+================+================================+=============================+
-| id  |  user_id  |  created_date  | title                          | post                        |
 +-----+-----------+----------------+--------------------------------+-----------------------------+
+| id  |  user_id  |  created_date  | title                          | post                        |
++=====+===========+================+================================+=============================+
 | 1   |  1        | 2012-04-13     | Testing table content tracking | Table tracking post content |
 +-----+-----------+----------------+--------------------------------+-----------------------------+
 
 Table: posts table
 
-+=====+===========+=============+=====================+
-| id  | user_id   | session_id  | set_date            |
 +-----+-----------+-------------+---------------------+
+| id  | user_id   | session_id  | set_date            |
++=====+===========+=============+=====================+
 | 1   | 1         |             | 2012-04-13 10:00:00 |
 +-----+-----------+-------------+---------------------+
 
 Table: change_set
 
-+=====+==============+========+
-| id  | changeset_id | order  |
 +-----+--------------+--------+
+| id  | changeset_id | order  |
++=====+==============+========+
 | 1   | 1            | 1      |
 +-----+--------------+--------+
 
 Table: change_log
 
-+===========+===========+====+
-| create_id | delete_id | id |
 +-----------+-----------+----+
+| create_id | delete_id | id |
++===========+===========+====+
 | 1         |           | 1  |
 +-----------+-----------+----+
 
 Table: posts_auditlog
 
-+===========+=====+===========+================+================================+=============================+
-| change_id | id  |  user_id  |  created_date  | title                          | post                        |
 +-----------+-----+-----------+----------------+--------------------------------+-----------------------------+
+| change_id | id  |  user_id  |  created_date  | title                          | post                        |
++===========+=====+===========+================+================================+=============================+
 | 1         | 1   |  1        | 2012-04-13     | Testing table content tracking | Table tracking post content |
 +-----------+-----+-----------+----------------+--------------------------------+-----------------------------+
 
@@ -581,7 +581,7 @@ the code.
 
 If you don't already have Catalyst installed, trying this one out will
 take a bit of dedication. You will need to install the module
-Catalyst::Model::DBIC::Schema[^catayst-dbic] from CPAN (which will
+Catalyst::Model::DBIC::Schema[^catalyst-dbic] from CPAN (which will
 install Catalyst::Runtime), and also
 Catalyst::Devel[^catalyst-devel]. This may take a while, have some
 coffee, or better, dinner.
@@ -661,19 +661,23 @@ tutorial[^catalysttutorial], or the Definitive Guide to
 Catalyst[^definitivecatalyst].
 
 
-[SQLT]: [](http://metacpan.org/module/SQL::Translator)
-[DBICDH]: [](http://metacpan.org/module/DBIx::Class::DeploymentHandler)
-[Moose]: [] (http://metacpan.org/module/Moose)
-[moosextypes]: [](http://metacpan.org/module/MooseX::Types)
-[replicateddeps]: [](http://metacpan.org/module/DBIx::Class::Optional::Dependencies#Storage::Replicated)
-[methodmodifiers]: [](http://metacpan.org/module/Moose::Manual::MethodModifiers)
-[nonmoose]: [](http://metacpan.org/module/MooseX::NonMoose)
-[model]: The data-storage part of a "Model, View, Controller"[^mvc] based application.
-[mvc]: Model, View, Controller, see [](http://enwp.org/Model-view-controller)
-[catalyst]:[](http://catalystframework.org) Other frameworks are available!
-[catalyst-dbic]:[](http://metacpan.org/module/Catalyst::Model::DBIC::Schema)
-[catalyst-devel]:[](http://metacpan.org/module/Catalyst::Devel)
-[perl5lib]: Under linux/bash: export PERL5LIB=$PERL5LIB:$PWD/lib or similar, adjust for the location of your classes.
-[catalystjson]: [](http://metacpan.org/module/Catalyst::View::JSON)
-[catalysttutorial]: [](http://metacpan.org/module/Catalyst::Manual::Tutorial)
-[definitivecatalyst]: [](http://www.apress.com/9781430223658)
+[^SQLT]: [](http://metacpan.org/module/SQL::Translator)
+[^DBICDH]: [](http://metacpan.org/module/DBIx::Class::DeploymentHandler)
+[^Wiki]: [](http://enwp.org/Wiki)
+[^CMS]: Content Management System, software used to build websites and similar things [](http://enwp.org/CMS)
+[^Candy]: [](http://metacpan.org/module/DBIx::Class::Candy)
+[^Moose]: [] (http://metacpan.org/module/Moose)
+[^Journal]: [](http://metacpan.org/module/DBIx::Class::Journal)
+[^moosextypes]: [](http://metacpan.org/module/MooseX::Types)
+[^replicateddeps]: [](http://metacpan.org/module/DBIx::Class::Optional::Dependencies#Storage::Replicated)
+[^methodmodifiers]: [](http://metacpan.org/module/Moose::Manual::MethodModifiers)
+[^nonmoose]: [](http://metacpan.org/module/MooseX::NonMoose)
+[^model]: The data-storage part of a "Model, View, Controller"[^mvc] based application.
+[^mvc]: Model, View, Controller, see [](http://enwp.org/Model-view-controller)
+[^catalyst]:[](http://catalystframework.org) Other frameworks are available!
+[^catalyst-dbic]:[](http://metacpan.org/module/Catalyst::Model::DBIC::Schema)
+[^catalyst-devel]:[](http://metacpan.org/module/Catalyst::Devel)
+[^perl5lib]: Under linux/bash: export PERL5LIB=$PERL5LIB:$PWD/lib or similar, adjust for the location of your classes.
+[^catalystjson]: [](http://metacpan.org/module/Catalyst::View::JSON)
+[^catalysttutorial]: [](http://metacpan.org/module/Catalyst::Manual::Tutorial)
+[^definitivecatalyst]: [](http://www.apress.com/9781430223658)

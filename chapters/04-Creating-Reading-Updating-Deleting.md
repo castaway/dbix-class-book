@@ -20,7 +20,7 @@ The DBIx::Class classes (also called your DBIC schema) contain all the data need
 
 ## Create a Schema object using a database connection
 
-All the database manipulation with DBIx::Class is done via one central Schema object, which maintains the connection to the database via a [storage object](http://metacpan.org/module/DBIx::Class::Storage). To create a schema object, call `connect` on your DBIx::Class::Schema subclass, passing it a [Data Source Name][^dsn].
+All the database manipulation with DBIx::Class is done via one central Schema object, which maintains the connection to the database via a [storage object](http://metacpan.org/module/DBIx::Class::Storage). To create a schema object, call `connect` on your DBIx::Class::Schema subclass, passing it a Data Source Name[^dsn].
 
     my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db");
     
@@ -764,3 +764,4 @@ This test can be found in the file **advanced_methods.t**.
     
 [^new_result]: new_result creates a Row object that stores the data given, but does not enter it into the database. The `in_storage` method can be used to check the status of a Row object (true == is in the database).
 [^DBIC_TRACE]: An environment variable to turn on debugging info which dumps the SQL queries made. Use `set DBIC_TRACE=1` on Windows or csh, and `export DBIC_TRACE=` on bash-like shells.
+[^dsn]: See the DBI documentation for more on how these work, essentially they consist of `dbi:` followed by the name of the DBD (database driver) you are using, eg `SQLite:`, followed by a custom description of the actual database, depending on driver used.
