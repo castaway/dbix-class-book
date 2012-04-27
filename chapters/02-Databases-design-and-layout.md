@@ -22,6 +22,8 @@ DBA[^DBA], then you can skim this to get an idea of what is going on
 Pre-requisites
 --------------
 
+We will be showing SQL examples in this chapter, and giving both MySQL[^mysql] and SQLite[^sqlite]
+
 Examples given in this chapter will work with the one-file database [SQLite](http://www.sqlite.org), which can be installed for Perl by installing the CPAN module [DBD::SQLite](http://search.cpan.org/dist/DBD-SQLite).
 
 Introduction
@@ -72,10 +74,11 @@ Some of these are descriptive, but not really required for a blogging
 system. Our first principle is to only store the data to the level we
 will actually use it. We can always add more later. Our simple system
 doesn't care how old the user is, or where they are, so we can drop
-the `dateofbirth`, `address` and `latlon` fields. We'll keep the
+the `dateofbirth`, `address` and `lat_long` ideas. We'll keep the
 `role` field for demonstration purposes later.
 
-Now we make a few posts for users 'joe' and 'fred' using the remaining columns:
+Now we make a few test posts for users 'joe' and 'fred' using the
+remaining columns and dumping them in a single table:
 
 +----+----------+----------+----------------+--------+------------+----------------+-------------+-------------+
 |name| username | password | email          | role   | post_title | post_content   | post_summary| post_created|
@@ -96,16 +99,27 @@ repeat all the data about the user for every post they make. This
 explodes the amount of data we end up storing, and also the amount
 that is transfered every time we want to display the post.
 
+In order to create a new row, we would have to either force the user
+to enter all this data again for each post, with the risk of them not
+entering values that match the existing ones, or pull a unique set for
+the user from the table, and re-submit them. Either way it makes extra
+work for somebody.
+
+If a user wanted to change their email address or password later on,
+we would also have to update all their entry rows. This will cause
+more work for the database, which would make it busier for other uses,
+such as displaying posts to other users.
+
 We would also have to update a lot of rows just to change one piece of
 information about the user, for example Joe's email address.
 
 ## Don't repeat data 1: Separate related data
 
-This gives us the second principle, don't repeat data. The first way
+This gives us the second technique, don't repeat data. The first way
 to do this is to look at the field titles, and notice that some
 clearly indicate a set of related fields. The `post_` fields belong
-together. We then attempt to name the tables based on what they
-contain:
+together. We can then attempt to name the separated tables based on
+what they contain:
 
 +-----------+----------------+-------------+-------------+
 | title     | content        | summary     | created     |
@@ -141,6 +155,11 @@ is called the `PRIMARY KEY`. We can choose a piece of existing data
 that preferably won't change, eg the `username` field, or we can add a
 new and definitely unique artificial integer field.
 
+Note that if we use a field that already exists, like `username`, then
+we can still update it (at least most database systems support this),
+but we end up with a similar situation to previously described, having
+to update all the users posts to change the username / key value.
+
 I prefer the integer approach, so we add a new field named `id` and
 store a copy in the Posts table as `user_id`. On the Posts table side
 this is called a `FOREIGN KEY`, and in most databases we can use a
@@ -164,9 +183,6 @@ KEY, so we'll add one there too:
 
 Table: Posts table
 
-The name for this one is fairly obvious, based on the fields we've
-extracted. We can also drop the `posts_` prefix now.
-
 +----+------+----------+-----------+----------------+--------+
 | id | name | username | password  | email          | role   |
 +====+======+==========+===========+================+========+
@@ -184,6 +200,11 @@ decisions, like what type of data we want to store in each of our
 fields. We'll need to store some text, some numbers and a date/time. As the
 numeric primary key is artificial, we can have the database
 automatically assign it a value, using the `AUTO INCREMENT` keyword.
+
+The `CREATE TABLE` statement is made up mostly of a list of columns,
+each one should contain at least a name and the data
+type[^yesweknow]. We're using data types from MySQL[^mysqldatatypes]
+here, SQLite will accept almost any type from other databases.
 
 `CREATE TABLE` is the SQL DDL[^DDL] statement to use to set up new tables:
 
@@ -207,8 +228,9 @@ automatically assign it a value, using the `AUTO INCREMENT` keyword.
       CONSTRAINT posts_fk_user_id FOREIGN KEY (user_id) REFERENCES users (id)
     );
 
-We can save these into a file, using the (not compulsory) extension
-".sql". To create a new MySQL database, first run the `CREATE
+We can save these into a file, _myblog.sql_. The extension of _.sql_
+is not compsulory, but is in general use, and recognised by most
+editors. To create a new MySQL database, first run the `CREATE
 DATABASE` statement, then import the contents of the file:
 
     mysql -h <host> -u <user> -p < echo "CREATE DATABASE myblog"
@@ -216,7 +238,7 @@ DATABASE` statement, then import the contents of the file:
     mysql -h <host> -u <user> -p <database> < myblog.sql
 
 To make an SQLite database we just import the SQL file into a new
-database (it stores one database per file):
+database file which will be created if it does not exist yet:
 
     sqlite3 myblog.db < myblog.sql
 
@@ -248,16 +270,17 @@ leave it empty, or NULL in SQL-speak.
 | 5  | 2       | false    | 1          | FComment  | FComment 1 content |         | 2011-03-10  |
 +----+---------+----------+------------+-----------+--------------------+---------+-------------+
 
-Table: Posts
+Table: Posts (with comments)
 
-This means we'll need to add a filter to our query every time we want
-to fetch either Posts or Comments. If we want to add methods to our
+This means when fetching the data for either Posts or Comments, we'll
+have to filter the table, for example by checking whether the
+`comment_on` field is NULL or not. If we also want to add methods to our
 code to calculate for example, the number of comments by each user, we
-will also have to filter.
+will also have to add a filter.
 
 As a rule of thumb, if the majority of your queries on the data will
 need to specify the filter, then its better to just separate the
-comments into their own table.
+comments into their own table instead.
 
 +----+---------+-------+-----------------+--------+-------------+
 | id | user_id | title | content         | summary| created     |
@@ -281,16 +304,16 @@ Table: Posts
 
 Table: Comments
 
-I've also removed the `summary` field from the Comments table, as we
-don't need to summarise comments.
+We can also tidy up the Commets table by removing the `summary` field,
+as we don't think we'll need to summarise comments.
 
 ## Don't repeat data 2: Linking tables
 
-You'll notice that we haven't yet looked at the data in the user table
-when we add comments. We have the `role` field which identifies which
-roles each user has. The original idea was to list their roles for
-each article, poster or commenter, we've lost that by dumping it into
-the user table.
+You'll notice that we haven't yet looked at what happens to the data
+in the user table when we add comments. We have the `role` field which
+identifies which roles each user has. The original idea was to list
+their roles for each article, `poster` or `commenter`, but we've lost
+that by dumping it into the user table.
 
 Each user can have multiple roles on each post, to store this in our
 database, we need a "many to many" relation (many users to many
@@ -323,7 +346,18 @@ Table: users_posts_roles
 | 2  | Fred| fredb    | otherpass | fred@bloggs.com |
 +----+-----+----------+-----------+-----------------+
 
-Table: Users table 
+Table: Users table
+
+We are again repeating the text for the role names. This time we
+can (and should) help avoid this data becoming incorrect by providing
+a list for the user (or probably an administrator) to select the role
+names from, when setting up or modifying a user account.
+
+This could end up with users being both commentors and editors on the
+same post, which would repeat the `user_id` and `post_id` pairs in the
+table. This is not too bad as its fairly small data. We could also
+avoid it by declaring that the roles are a hierarchy, that is that all
+`editor`s are automatically `commentor`s as well.
 
 ## SQL break, SELECT ... FROM
 
@@ -343,9 +377,28 @@ unique values we created.
     JOIN posts ON users.id = posts.user_id
     WHERE username = 'joeb';
 
-
 You can enter these into the mysql or sqlite3 clients to see what happens.
+
+## DBIx::Class and SQL
+
+The rest of the book won't dwell much on the actual SQL statements, as
+we're trying to abstract them with Perl. If you'd like to know what's
+going on behind the scenes in the following chapters, then you can set
+the `DBIC_TRACE` environment variable to 1 in your shell. In the bash
+shell for example it would look like this:
+
+    export DBIC_TRACE=1
+    
+All DBIx::Class code in this shell will now output which statements it
+is running to the screen. To turn it off again, set it to `0`, or
+`unset` it.
+
+Now, on to chapter 3 and some actual Perl code.
 
 [^DDL]: Data Definition Language
 [^dbclass]: An online course in using databases, a good introduction to academic techniques.
 [^wpblog]: [](http://enwp.org/Blog)
+[^mysql]: A free and well-known database that works on various operating systems, see [](http://www.mysql.com). Get the DBD ([](http://metacpan.org/module/DBD::mysql)) to use it with Perl.
+[^sqlite]: A free, compact and single-file database that works on various operating systems, see [](http://sqlite.org). To use it with Perl, get [](http://metacpan.org/module/DBD::SQLite) which also contains the database itself.
+[^yesweknow]: Yes, SQLite doesn't strictly insist on data types being provided. It's a good idea to provide them anyway for easy transition to other databases, and clarity to other developers.
+[^mysqldatatypes]: [](http://dev.mysql.com/doc/refman/5.6/en/data-types.html) - the latest version at time of writing, make sure you find the documentaton that matches your actual installation.
