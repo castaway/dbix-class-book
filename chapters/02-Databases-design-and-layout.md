@@ -9,7 +9,15 @@ Chapter summary
 ---------------
 
 This chapter explains how to effectively lay out the data you want to
-store in your database into tables.
+store in your database. It covers several techniques on how to decide
+to split up your content in a way that is usable with
+DBIx::Class. Note that these are of my own devising, for a more formal
+set of rules, see L<http://db-class.org>[^dbclass] or look up
+"Database normalisation".
+
+If you already have an existing database, or are working with a
+DBA[^DBA], then you can skim this to get an idea of what is going on
+(and why), or jump straight to [](chapter_03-describing-database).
 
 Pre-requisites
 --------------
@@ -28,6 +36,16 @@ data and its uses, and divide it into tables and related tables. We'll
 also touch on some formal definitions, and show some places to get
 some more help if you're still stuck.
 
+We are using the example of writing a blogging software or website
+throughout this book. This example is chosen as hopefully all readers
+will have an idea of how it works. Just in case, we're going to assume
+we have one or more `Users` who write articles we'll name `Posts` and
+that they'll allow other `Users` to write `Comments` attached to the
+articles. If you're still unsure what's going on, please see the
+Wikipedia article on "Blog"[^wpblog].
+
+
+
 ## First, find some data
 
 We're going to need some sample data to explore how to do this, so
@@ -38,7 +56,7 @@ pieces.
 * name (display name)
 * dateofbirth (user's dob)
 * address (user's location)
-* latlon (user's geo location)
+* lat_long (user's geo location)
 * username (unique login name)
 * password (key for user account)
 * email (for confirmation and notifications)
@@ -329,3 +347,5 @@ unique values we created.
 You can enter these into the mysql or sqlite3 clients to see what happens.
 
 [^DDL]: Data Definition Language
+[^dbclass]: An online course in using databases, a good introduction to academic techniques.
+[^wpblog]: [](http://enwp.org/Blog)
