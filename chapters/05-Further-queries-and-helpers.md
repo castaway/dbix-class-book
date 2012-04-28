@@ -43,11 +43,11 @@ the `-like` comparison operator.
 
 `LIKE` is an SQL keyword used to compare data against simple wildcard
 matching. `%` matches any number of characters, `_` matches a single
-character. LIKE is defined as being case-insensitive in the SQL
+character. While LIKE is defined as being case-insensitive in the SQL
 standard, it is not implemented as such in all databases (PostgreSQL
-is one example, it provides the LIKE and ILIKE keywords).
+for example, provides the LIKE and ILIKE keywords).
 
-The two arguments to `search` are a set of conditions, and a set of
+The two arguments to `search` are a set of conditions and a set of
 attributes. The conditions supply the filters to apply to the data,
 the attributes add grouping, sorting and joining and more.
 
@@ -81,7 +81,7 @@ ResultSet using the `next` method.
 A default `search` will fetch all the columns defined in the
 ResultSource that we're using for the search. Note that the
 ResultSource itself does not need to define all the columns in a
-database table, if you don't need to use some of them in your
+database table. If you don't need to use some of them in your
 application at all, you can leave them out of the Schema.
 
 You may want to reduce the set of columns fetched from the database,
@@ -117,7 +117,7 @@ To get the SQL:
 
 The SQL `SELECT` clause can contain many other things, for example
 functions such as `length`. To output a function and its arguments,
-use a hashref in the `columns` attribute, we can also add new columns
+use a hashref in the `columns` attribute. You can also add new columns
 to the default set using the `+columns` attribute.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
@@ -125,7 +125,7 @@ to the default set using the `+columns` attribute.
     my $users_rs = $schema->resultset('User');
     my $users_plus_emaillen_rs = $users_rs->search({
     }, {
-      '+columns'     => [ { 'userlen' => { length => 'username' } }],
+      '+columns'     => [ { 'emaillen' => { length => 'email' } }],
     });
 
 Which produces the SQL:
@@ -162,14 +162,14 @@ data values in the database, or manipulations of those values. The
 type of sorting we get depends on the data types in the columns. We
 can fetch all our users ordered by their usernames for display:
 
-The `order_by` attribute is used to output the SQL keywords `ORDER BY`. 
+The `order_by` attribute corresponds to the SQL keyword `ORDER BY`.
 Sorting can be done either ascending, with `-asc`, or descending
 with `-desc`.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
     my $users_rs = $schema->resultset('User')->search({
-    }, {
+    },
       order_by => { '-desc' => ['me.username'] }
     });
 
@@ -179,16 +179,15 @@ We get the SQL:
     FROM users me
     ORDER BY me.username DESC
 
-The results from our loop over the results are now sorted by username,
-no need to sort further in Perl or your templating system.
+The results from our loop over the results are now sorted by username.
+There's no need to sort further in Perl or your templating system.
 
-Now that we have rows in a known order, we can also reduce the set of
-results to a top ten, or to a page worth of results, so that we only
-fetch data we'll actually use. There are unfortunately many different
-implementations of ways to reduce the number of rows returned by an
-SQL query. Luckily DBIx::Class abstracts these away for you, providing
-a single `rows` attribute that is converted to the correct keyword
-when the query is run.
+Now that we have rows in a known order, we can also reduce the set of results
+to a top ten, or to a page worth of results, so that we only fetch data we'll
+actually use. There are unfortunately many different database-specific
+implementations of ways to reduce the number of rows returned by an SQL query.
+Luckily DBIx::Class abstracts these away for you, providing a single `rows`
+attribute that is converted to the correct keyword when the query is run.
 
 The first 'page' of 10 usernames to display:
 
@@ -208,12 +207,12 @@ On SQLite and MySQL we get the SQL:
     LIMIT 10
 
 Which returns a maximum of 10 rows. If the unlimited query would
-return less than 10 rows, then we just get those, no error is thrown.
+return fewer than 10 rows, then we just get those. No error is thrown.
 
-SQL even provides a way to return a specified set of results from
+SQL even provides a way to return a specified subset of results from
 within the entire set, so we can fetch a second page of results
 precisely. DBIx::Class implements this by providing the `page`
-attribute to select which page of results to return, this defaults to
+attribute to select which page of results to return. This defaults to
 1 if not supplied.
 
 The second 'page' of 10 usernames to display:
@@ -333,14 +332,14 @@ This test can be found in the file **ordered_posts.t**.
 ## Joining, Aggregating and Grouping on related data
 
 We've seen how to create related rows, either singly or together with
-other data, now we can look at how to query or fetch all that data
+other data. Now we can look at how to query or fetch all that data
 without making multiple trips to the database. The SQL keyword `JOIN`
 can be produced using the attribute `join` and providing it a list of
 related resultsources to join on. The joined tables can be accessed in
 the search conditions and other clauses, using the name of the
 relationship.
 
-Here is a more concrete example, we can fetch a list of our users,
+Here is a more concrete example. We can fetch a list of our users
 together with the number of posts that they have written.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
@@ -367,7 +366,7 @@ columns, so we want a count of unique posts.id values per user. The
 
 NB: The SQL standard says that GROUP BY should include all the queried
 (`SELECT`ed) columns which are not being aggregated. Some databases
-enforce this, some, such as MySQL, do not by default.
+enforce this. Some, such as MySQL, do not by default.
 
 
 ## Your turn, find the earliest post of each user
@@ -464,7 +463,7 @@ This test can be found in the file **earliest_posts.t**.
 
 With [](chapter_05-joining-aggregating-and-grouping-on-related-data) and
 various aggregation functions we can sum or count data across groups
-of rows, if we want to then filter the results again, for example to
+of rows. If we want to filter the results again, for example to
 get only the groups whose COUNT is greater than a certain value, we
 need to use the SQL keyword `HAVING`. To differentiate, the `WHERE`
 clause applies before the grouping, and the `HAVING` clause applies
@@ -485,10 +484,10 @@ So to return all users that have at least one post:
       having     => [ { 'post_count' => { '>=' => 1 } } ],
     });
 
-Note that we've added the `-as` argument to our `post_count` column,
-this is required to output the SQL `AS` keyword, which is used to
-alias the result of a function call or calculation. The alias can then
-be used in subsequent clauses, such as the `HAVING` clause.
+Note that we've added the `-as` argument to our `post_count` column.  This is
+required to output the SQL `AS` keyword, which aliases the result of a function
+call or calculation. The alias can then be used in subsequent clauses, such as
+the `HAVING` clause.
 
 We get the SQL:
 
@@ -728,7 +727,7 @@ To use the `UNION`, `INTERSECT` and `EXCEPT` keywords, install the
 [DBIx::Class::Helpers module from CPAN](http://metacpan.org/module/DBIx::Class::Helpers).
 
 Using these constructs we can glue together the results of arbitrary
-resultsets, for example of if we want to allow users to search for
+resultsets. For example, if we want to allow users to search for
 either usernames or post titles (or contents), we can UNION together
 several resultsets. Take care to select the same number of columns in
 the resultsets.
@@ -749,7 +748,7 @@ component. Put this in the `MyBlog/Schema/ResultSet/User.pm` file:
     
     1;
     
-Now we can use the Helper methods provided, first, create some
+Now we can use the Helper methods provided. First, create some
 resultsets to query each of the fields we wish to search on:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
@@ -777,7 +776,7 @@ resultsets to query each of the fields we wish to search on:
         }
         );
 
-    my $realname_rs= $users_rs->search(
+    my $realname_rs = $users_rs->search(
         {},
         {
             'columns' => [ 'id', { search => \'realname as search'}, { tablename => \'"User" as tablename'}],
@@ -842,7 +841,7 @@ The SQL we get looks like this:
 Which is executed with the placeholders set to: ('fred')
 
 `intersect` and `except` can be used in exactly the same way, and
-produce respectively a set of results which exists in all the querys
+produce respectively a set of results which exists in all the queries
 given, and a set of results that contains all rows in the first query,
 without any that appear in the subsequent queries.
 
@@ -1162,12 +1161,12 @@ If any of these fail, the entire set of statements is automatically
 reverted using the `ROLLBACK` statement.
 
 It's possible that you can't collect all the code you need to run in a
-transaction, into the same place in your code. In this case there are
+transaction in the same place in your code. In this case there are
 also the bare bones methods `txn_begin` and `txn_commit` on the
 `Schema` object, which will independently start and end a
 transaction. Another alternative is the `txn_scope_guard` method which
 will return a `$guard` object. This will issue a rollback if it goes
-out of scope, otherwise it can be used to issue a `commit` statement.
+out of scope. Otherwise it can be used to issue a `commit` statement.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');

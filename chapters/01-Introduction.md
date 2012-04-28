@@ -31,7 +31,7 @@ Note that none of the choices are all-exclusive, you can use multiple types of d
 
 ### Data::Dumper and Storable
 
-Data::Dumper[^datadumper] is a module for outputting a string representation of a Perl data structure. Its used mostly for debugging purposes. The data output by Data::Dumper can in theory be read back in, using eval. To output Perl data structures to disc and read them back in, its reccommended to use the Storable[^storable] standard module. Storable provides 'nstore' and 'retrieve' functions that will save a structure to a file and reload it. 
+Data::Dumper[^datadumper] is a module for outputting a string representation of a Perl data structure. It's used mostly for debugging purposes. The data output by Data::Dumper can in theory be read back in, using eval. To output Perl data structures to disk and read them back in, it's recommended to use the Storable[^storable] standard module. Storable provides 'nstore' and 'retrieve' functions that will save a structure to a file and reload it.
 
 #### Pros
 
@@ -55,12 +55,12 @@ Data::Dumper[^datadumper] is a module for outputting a string representation of 
     use warnings;
     use Storable;
 
-    # Read previously stored data    
+    # Read previously stored data
     my $list = retrieve('/tmp/my-cached-data.dat');
-    
+
     # Update cache
     $list->{oranges} = 4;
-    
+
     # Save new cache
     nstore($list, '/tmp/my-cached-data.dat');
 
@@ -91,17 +91,17 @@ CPAN[^CPAN] has modules such as XML::Simple[^xmlsimple], JSON[^json], Text::xSV[
 
     use strict;
     use warnings;
-    
+
     use XML::Simple;
-    
+
     my $xml = '<some><format from="another">system</format></some>';
     my $perldata = XMLIn($xml);
-    
+
     $perldata->{some}{format}{from} = 'this';
 
 ### Binary formats
 
-Binary file formats are used for compact storage and faster access. Predefined binary formats include Images, such as JPEG or PNG formats, which can be read and written using the Imager[^imager] module. Music files are also stored in binary formats, CPAN provides also modules for manipulating MP3 tags, such as MP3::Tag[^mp3tag]. 
+Binary file formats are used for compact storage and faster access. Predefined binary formats include Images, such as JPEG or PNG formats, which can be read and written using the Imager[^imager] module. Music files are also stored in binary formats. CPAN also provides modules for manipulating MP3 tags, such as MP3::Tag[^mp3tag].
 
 #### Pros
 
@@ -123,20 +123,20 @@ Binary file formats are used for compact storage and faster access. Predefined b
 
     use strict;
     use warnings;
-    
+
     use Image::ExifTool qw(:Public);
-    
+
     my $exift = Image::ExifTool->new();
     $exift->ExtractInfo('a.jpg');
     my $orig_datetime = $exitf->GetValue('DateTimeOriginal');
-    
+
     $exift->SetNewValue('Artist', 'Fred');
     $exift->WriteInfo('a.jpg');
 
 
 ### Relational Databases
 
-Databases are systems for storing structured data, in a pre-defined layout. The layout of the data is set up for a particular use or application and the database system (RDBMS[^RDBMS]) enforces the constraints on the data to keep it consistent. Databases are access in Perl using DBI[^DBI] and the driver for the chosen database, popular ones are the open source systems Postgres[^pg], MySQL[^mysql] and SQLite[^sqlite]. DBI also supports the big commercial databases such as Oracle[^oracle], DB2[^db2] and MS SQL Server[^mssql].
+Databases are systems for storing structured data, in a pre-defined layout. The layout of the data is set up for a particular use or application and the database system (RDBMS[^RDBMS]) enforces the constraints on the data to keep it consistent. Databases are accessed in Perl using DBI[^DBI] and the driver for the chosen database, popular ones are the open source systems Postgres[^pg], MySQL[^mysql] and SQLite[^sqlite]. DBI also supports the big commercial databases such as Oracle[^oracle], DB2[^db2] and MS SQL Server[^mssql].
 
 #### Pros
 
@@ -158,27 +158,27 @@ Databases are systems for storing structured data, in a pre-defined layout. The 
 
     use strict;
     use warnings;
-    
+
     use DBI;
-    
+
     my $dbh = DBI->connect("dbi:SQLite:mydb.db");
-    
+
     $dbh->do("CREATE TABLE users(id integer primary key, username varchar(50), password varchar(50)");
-    
+
     my $sth_insert = $dbh->prepare("INSERT INTO users (username, password) VALUES(?, ?)");
     $sth_insert->execute("castaway", "mypass");
-    
+
     my $sth_select = $dbh->prepare("SELECT id, username, password FROM users");
     $sth_select->execute();
-    
+
     while (my $row = $sth_select->fetchrow_hashref) {
       printf("id: %d, username: %s", $row->{id}, $row->{username});
     }
-    
+
 
 ### NoSQL systems
 
-NoSQL actually means "Not a traditional relational database", some do in fact use the SQL language or a subset of it. There are several subtypes of NoSQL systems, Key-Value storage, Document storage, Big-Table and Graph storage. Generally they are usable similarly to RDBMS', and provide more performance and ease of use, countered with less promise of consistency and transactions. CPAN provides modules for several popular NoSQL systems, MongoDB[^mongodb], CouchDB[^couchdb].
+NoSQL actually means "Not a traditional relational database". Some NoSQL systems do in fact use the SQL language or a subset of it. There are several subtypes of NoSQL systems, Key-Value storage, Document storage, Big-Table and Graph storage. Generally they are usable similarly to RDBMS', and provide more performance and ease of use, countered with less promise of consistency and transactions. CPAN provides modules for several popular NoSQL systems, MongoDB[^mongodb], CouchDB[^couchdb].
 
 #### Pros
 
@@ -188,7 +188,7 @@ NoSQL actually means "Not a traditional relational database", some do in fact us
 #### Cons
 
 * Less consistency, constraint support.
-* Transactions only supported in some system.
+* Transactions only supported in some systems.
 
 #### Useful for
 
@@ -205,11 +205,11 @@ NoSQL actually means "Not a traditional relational database", some do in fact us
     my $collection = $database->bar;
     my $id         = $collection->insert({ some => 'data' });
     my $data       = $collection->find_one({ _id => $id });
-    
+
 Why relational databases and DBIx::Class?
 ------------------------------------------
 
-DBIx::Class was started back in 2005 as a "research project", or so the original author, Matt Trout, will claim if you ask him. At the time Class::DBI[^classdbi] was the module to use if you wanted to abstract your SQL into Perl speak. Some brave developers put some of the early DBIC releases into production code and that was that. Since then it as grown to be one of the larger Perl community projects, with many releases by many members of the community, and an even longer list of contributors. 
+DBIx::Class was started back in 2005 as a "research project", or so the original author, Matt Trout, will claim if you ask him. At the time Class::DBI[^classdbi] was the module to use if you wanted to abstract your SQL into Perl speak. Some brave developers put some of the early DBIC releases into production code and that was that. Since then it as grown to be one of the larger Perl community projects, with many releases by many members of the community, and an even longer list of contributors.
 
 I started using DBIx::Class early on in 2006, I forget exactly why, possibly something to do with SQL::Translator. I stayed for the communal feel, the responsiveness of the team to answer questions and fix bugs. At some point I got named "Documentation Queen", as I actually like writing documentation, and seem to be good at marshalling other people to write some, when they find an issue or can't understand the existing docs.
 
@@ -229,7 +229,7 @@ The sources of the various exercises and even code snippets for this book can be
 [^RDBMS]: Relational Database Management Systems - databases such as Oracle, DB2, MySQL, Postgres and MS SQL Server.
 [^DML]: Data Manipulaton Language, the part of SQL which is used to add, change and remove data.
 [^DDL]: Data Definition Language, SQL statements to define tables, indexes and views for the data storage.
-[^CPAN]: The [Comprehensive Perl Archive Network](http://pause.cpan.org) 
+[^CPAN]: The [Comprehensive Perl Archive Network](http://pause.cpan.org)
 [^datadumper]: [](http://metacpan.org/module/Data::Dumper)
 [^storage]: [](http://metacpan.org/module/Storable)
 [^xmlsimple]: [](http://metacpan.org/module/XML::Simple)
