@@ -17,7 +17,7 @@ set of rules, see L<http://db-class.org>[^dbclass] or look up
 
 If you already have an existing database, or are working with a
 DBA[^DBA], then you can skim this to get an idea of what is going on
-(and why), or jump straight to [](chapter_03-describing-database).
+(and why), or jump straight to [](chapter_03-describing-your-database).
 
 Pre-requisites
 --------------

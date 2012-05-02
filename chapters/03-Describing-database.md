@@ -8,15 +8,14 @@ Chapter 3 - Describing your database
 Chapter summary
 ---------------
 
-This chapter describes how to create a set of Perl modules using
+This chapter describes how to create a set of Perl classes using
 DBIx::Class that describe your database tables, indexes and
 relationships. The examples used will be based on a made-up schema
-representing a blog. We will introduce basic User and Post tables.
+representing a blog software. We will introduce basic User and Post
+tables and continue to use them throughout the rest of the book.
 
 Pre-requisites
 --------------
-
-[%# This should probably be at the beginning of the book as its prevalent? #%]
 
 Examples given in this chapter will work with the one-file database [SQLite](http://www.sqlite.org), which can be installed for Perl by installing the CPAN module [DBD::SQLite](http://search.cpan.org/dist/DBD-SQLite).
 
@@ -26,29 +25,23 @@ if you need to. We will also assume that you know the basics of
 writing Perl classes (and packages), and the keywords that go with
 them. [^modernperl]
 
-[%# this bit needs moving into the main text somewhere #%]
-If you already have a database that you are using you can still create
-these files by hand following this chapter. You can also use
-[DBIx::Class::Schema::Loader](http://search.cpan.org/perldoc?DBIx::Class::Schema::Loader) to create them automatically. Read the
-documentation of that manual, or look in
-[Appendix2](http://search.cpan.org/perldoc?DBIx::Class::Tutorial::Appendix2) on how to do that.
-
 Introduction
 ------------
 
 DBIx::Class needs to be told about the structure of your database
 tables and how the contents of the columns relate to each other, in
 order to be able to form valid and efficient queries. This description
-is done by creating a set of Perl classes containing the definitions.
+is done by creating a set of Perl classes containing definitions of
+the tables.
 
 While it is possible to have DBIx::Class dynamically extract this data
 from your actual database at startup time, this is considered a method
-of last resort.[^schemaloader] The main reason for this is that
-changes to your database layout in unexpected ways should cause your
-code to complain, and not attempt to load and run anyway, potentially
-messing up your data.
+of last resort. The main reason for this is that unexpected changes to
+your database layout should cause your code to complain, and not
+attempt to load and run anyway, potentially messing up your data.
 
-Later we will cover ways of versioning and verifying your schema[^schema] definitions.
+Later we will cover ways of versioning and verifying your
+schema[^schema] definitions.
 
 Perl classes you need to create
 -------------------------------
@@ -70,8 +63,6 @@ a row of data can be added here.
 
 Other types of classes can be used to extend the functionality of the
 schema. These will be introduced later.
-
-<a name="#a-word-about-namespaces"></a>
 
 A word about module namespaces
 ------------------------------
@@ -97,7 +88,7 @@ application, then the application top-level namespace may go here.
 
 While the table names in the database are often named using a plural,
 eg _users_, the corresponding Result class is usually named in the
-singular, as it respresents a single result, or row of the query.
+singular, as it respresents a single result, or row of a query.
 
 The Schema class
 ----------------
@@ -116,12 +107,15 @@ associated Result classes.
     1;
 
 `load_namespaces` does the actual work here. It finds and loads all
-the files found in the `Result` subnamespace of your schema (see [](chapter_03-a-word-about-module-namespaces) above). It can also be
-configured to use other namespaces or load only a subset of the
-available classes by explicitly listing them.
+the files found in the `Result` sub-namespace of your schema (see
+[](chapter_03-a-word-about-module-namespaces) above). Files in the
+`ResultSet` namespace (of which more in
+[](chapter_06-components-and-extending)) will also be loaded, if
+present. It can also be configured to use other namespaces or load
+only a subset of the available classes by explicitly listing them.
 
 The loaded files are assumed to be actual **Result classes** (see
-below). If anything else is found in the subnamespace, the load will
+below). If anything else is found in the sub-namespace, the load will
 complain and die.
 
 The Result class
@@ -131,19 +125,20 @@ Result classes are used for two purposes. Calls in the class itself,
 which is a subclass of DBIx::Class::ResultSource, are used to describe
 the source (table, view or query) structure of each basic building
 block you will use to query the database. Secondly the objects that
-result from those database queries are based on your Result classes,
+result from those database queries are based upon your Result classes,
 meaning any methods added to the class will be available to call on
 those result objects.
 
-When each Result class is loaded by the [](chapter_03-the-schema-class), a ResultSource instance is created to
+When each Result class is loaded by the
+[](chapter_03-the-schema-class), a ResultSource instance is created to
 contain the database structure information. Later the ResultSource
-object can be retrieved from the Schema object if needed, to ask it 
-information about the schema, for example to iterate through the
-known columns on a table.
+object can be retrieved from the Schema object if needed, to ask it
+information about the schema, for example to list the known columns on
+a table.
 
 Result classes are only needed for each data source you need to access
-in your application. You do not need to create one for every table and
-view in the database.
+or reference in your application. You do not need to create one for
+every table and view in the database.
 
 Result classes should inherit from
 **DBIx::Class::Core**[^corecomponent]. This loads a number of useful
@@ -169,7 +164,7 @@ Our user table looks like this (in mysql or SQLite):
       PRIMARY KEY (id)
     );
 
-This is the result class for the users table:
+This is the Result class for the users table:
 
     1. package MyBlog::Schema::Result::User;
     2. use strict;
@@ -465,6 +460,37 @@ A short script to test your classes:
 
 Learn what all this does in Chapter 4!
 
+Alternative class creation
+--------------------------
+
+Now that you've (hopefully) read this chapter and understood how the
+classes that DBIx::Class uses work, we'll take a short look at how to
+extract all this data automatically from an existing database, if you
+have one.
+
+The separate module DBIx::Class::Schema::Loader[^loader], is available
+on CPAN. It can be used to query most makes of relational database and
+write out a set of Result class files and a Schema class for
+you. These classes will also contain a checksum, which enables you to
+add your own code to the classes, and still be able to re-run the
+database export when the database layout is changed.
+
+Without further ado, install the module, then run the included
+`dbicdump` script:
+
+    dbicdump MyBlog::Schema 'dbi:SQLite:myblog.db'
+
+This is the most basic way to use the tool, this will create a set of
+files in the current directory, using `MyBlog::Schema` as the
+top-level namespace, and pulling the data from the SQLite database in
+the _myblog.db_ file.
+
+There are many possible options to refine the output, you can
+`exclude` some tables from the export, choose a particular `db_schema`
+to get tables from, and choose which `dump_directory` to put the files
+in. Refer to the whole list in the documentation[^loaderoptions]. Some
+of these will make more sense as you go through the book, refer back
+to the options documentation as you go.
 
 CONCLUSIONS
 -----------
@@ -474,9 +500,8 @@ actually create and query some data from your database.
 
 
 [^modernperl]: Read Learning Perl or Modern Perl to gain a basic understanding of Perl classes and packages.
-[^schemaloader]: [DBIx::Class::Schema::Loader](http://search.cpan.org/dist/DBIx-Class-Schema-Loader)
 [^schema]: A collection of classes used to describe a database for DBIx::Class is called a "schema", after the main class, which derives from DBIx::Class::Schema.
 [^corecomponent]: It is also possible to inherit purely from the `DBIx::Class` class, and then load the `Core` component, or each required component, as needed. Components will be explained later.
 [^dsn]: Data Source Name, connection info for a database, see [DBI](http://search.cpan.org/perldoc?DBI)
-
-
+[^loader]: [](http://metacpan.org/module/DBIx::Class::Schema::Loader)
+[^loaderoptions]: [](http://metacpan.org/module/DBIx::Class::Schema::Loader::Base#CONSTRUCTOR-OPTIONS)
