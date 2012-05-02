@@ -9,7 +9,7 @@ In this chapter we will show how to do basic database operations using your DBIx
 Pre-requisites
 --------------
 
-We will be giving code examples and comparing them to the SQL statements that they produce, you should have basic SQL knowledge to understand this chapter. The database we are using is provided as an SQL file to import into an [SQLite database](http://search.cpan.org/dist/DBD-SQLite) to get started. You should also have basic knowledge of object-oriented code and Perl classes.
+We will be giving code examples and comparing them to the SQL statements that they produce. You should have basic SQL knowledge to understand this chapter. The database we are using is provided as an SQL file to import into an [SQLite database](http://search.cpan.org/dist/DBD-SQLite) to get started. You should also have basic knowledge of object-oriented code and Perl classes.
 
 [Download code](http://dbix-class.org/book/code/chapter04.zip) / preparation?
 
@@ -24,7 +24,7 @@ All the database manipulation with DBIx::Class is done via one central Schema ob
 
     my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db");
     
-Keep the `$schema` object in scope, if it disappears, other DBIx::Class objects you have floating about will stop working. 
+Keep the `$schema` object in scope. If it disappears, other DBIx::Class objects you have floating about will stop working.
 
 To pass a username and password for the database, just add the strings as extra arguments to `connect`, for example when using MySQL:
 
@@ -34,13 +34,13 @@ You can also pass various [DBI](http://metacpan.org/dist/DBI) connection paramet
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword", { quote_char => "`'", quote_sep => '.' });
 
-For more detailed information about all the available connection arguments, see the [connect_info documentation](http://search.cpan.org/perldoc?DBIx::Class::Storage::DBI)
+For more detailed information about all the available connection arguments, see the [connect_info documentation](http://search.cpan.org/perldoc?DBIx::Class::Storage::DBI).
 
 ## Accessing data, the empty query aka ResultSet
 
-To manipulate any data in your database, you first need to create a **ResultSet** object. A ResultSet is an object representing a potential query, it is used to store the conditions and joins needed to produce the SQL statement.
+To manipulate any data in your database, you first need to create a **ResultSet** object. A ResultSet is an object representing a potential query. It represents the conditions and joins needed to produce the SQL statement.
 
-ResultSets can be fetched using the **Result class** names, for example the users table is in `User.pm`, to fetch its ResultSet, using the `resultset` method:
+ResultSets can be fetched using the **Result class** names. For example, `User.pm` describes the `users` table. To fetch its ResultSet, using the `resultset` method:
 
     my $users_rs = $schema->resultset('User');
 
@@ -89,14 +89,14 @@ To see what's going on, set the shell environment variable [^DBIC_TRACE] to a tr
 NB: The `?` symbols are placeholders, the actual values will be quoted according to your database rules, and passed in.
 
 As the `id` column was defined as being `is_auto_increment` we haven't
-supplied that value at all, the database will fill it in, and the
+supplied that value at all. the database will fill it in, and the
 `insert` call will fetch the value and store it in our `$fred`
 object. It will also do this for other database-supplied fields if
 defined as `retrieve_on_insert` in `add_columns`.
 
 ### Your turn, create a User and verify with a test
 
-Now that's all hopefully made sense, time for a bit of Test-Driven-Development. 
+Now that's all hopefully made sense, it's time for a bit of Test-Driven-Development.
 
 This is a short Perl test that will check that a user, and only one user, with the `email` of **alice@bloggs.com** exists in the database. You can type it up into a file named **check-alice-exists.t** in t/ directory, or unpack it from the provided tarball.
 
@@ -233,7 +233,7 @@ Lookup the solution if you get stuck.
 
 ## Finding and changing a User's data later on
 
-We've entered several users into our database, now it would be useful
+We've entered several users into our database. Now it would be useful
 to be able to find them again, and log them in or update their
 data. If you've been paying close attention to the tests we've used to
 check your progress, you'll notice the `find` ResultSet method.
@@ -243,10 +243,10 @@ primary key or a known unique set of columns. These are both named in
 the **Result Class** using `set_primary_key` and
 `add_unique_constraint` respectively. By default `find` will try all
 the given columns against the primary and unique keys to find the best
-match, this will not work well if no key columns are present.
+match. This will not work well if no key columns are present.
 
 To login, the user will give you their username and password data, to
-verify against a securely stored password, we need to first find the
+verify against a securely stored password. We need to first find the
 User object, then test against the password.
 
 Enough chatter, here's some code:
@@ -271,8 +271,7 @@ Now that we've verified that fred is who he says he is, we can allow
 him to update his email address or change his password, and store
 those changes.
 
-This example uses a small console based programm to illustrate, as
-there wasn't room for an entire Web application.
+This example uses a small console based program to illustrate. (Performing this behavior on DBIx::Class objects demonstrates how you can share a database layer between a command-line program and a web application, for example.)
 
     my $username = prompt('x', 'Your username', 'Enter your username', '');
 
@@ -306,12 +305,12 @@ We've entered some single unrelated rows into the database, now we'll
 look at how the relations work. In DBIx::Class *related* data means
 data stored across multiple tables which is related in some way.
 
-[%# yes we know this is at odds to how "real" relations in RDBMS' are described.. %]
+[%# yes we know this is at odds to how "real" relations in RDBMS' are described. %]
 
-In the `User` class we defined a `has_many` relationship to the `Post`
+The `User` class we defined a `has_many` relationship to the `Post`
 class, indicating that a user can create multiple posts. In the
 database the `user_id` field stores the id of the Post-owning user
-against each Post row.
+for each Post row.
 
 Once we have a Row object representing a user, we can create related
 Post entries without having to spell out the relationship:
@@ -322,7 +321,7 @@ Post entries without having to spell out the relationship:
     });
 
 This will automatically pick up the `id` value from the `$fred`
-object, and insert it into the `user_id` column in the Posts
+object and insert it into the `user_id` column in the Posts
 table. The `$fred` object must be a User row that exists in the
 database.
     
@@ -333,7 +332,7 @@ In true perlish TIMTOWTDI spirit, this can also be written as:
         post => 'A very short post',
     });
 
-The `posts` method is created by our `has_many` relation, it will
+The `posts` method is created by our `has_many` relation. It will
 return a **DBIx::Class::ResultSet** object with a condition for all
 the one or more related Post entries.
 
@@ -374,7 +373,7 @@ a list of alternate conditions:
       realname => [ map { { '-like' => "%$_%"} } @badwords ],
     });
     
-The result is a ResultSet which contains the condition we want, now we
+The result is a ResultSet which contains the condition we want. Now we
 can update all the rows at once by applying `update` to the ResultSet.
 
    $badusers_rs->update({ realname => 'XXXX' });
@@ -410,7 +409,7 @@ behaviour, set up the relationship with `cascade_delete` set to 0:
     32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id', { cascade_delete => 0 });
 
 
-To remove a multiple rows at once, create a resultset object that matches the
+To remove multiple rows at once, create a resultset object that matches the
 rows to remove, and call the `delete` method on it:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
@@ -429,7 +428,7 @@ true value to indicate the data is no longer in use.
 
 ## Advanced create/update/delete
 
-Now we go a bit wild, there are a bunch of useful methods and
+Now we go a bit wild. There are a bunch of useful methods and
 techniques which simplify your code by combining methods
 we've already looked at in this chapter. I'll give a description and
 usage hint for each one, then we'll do some more tests.
@@ -457,14 +456,14 @@ For example, you can do this:
       email => 'john.smith@example.com',
       
       posts => [
-      {
-        title => "John's first post",
-        post  => 'Tap, tap, is this thing on?',
-      },
-      {
-        title => "John's second post",
-        post => "Anybody out there?",
-      }
+          {
+            title => "John's first post",
+            post  => 'Tap, tap, is this thing on?',
+          },
+          {
+            title => "John's second post",
+            post => "Anybody out there?",
+          }
       ],
     });
       
@@ -489,7 +488,7 @@ You can also do this:
     my $fred = $users_rs->find({ username => 'fred' });
     my $posts_rs = $schema->resultset('Post');
     
-    $postss_rs->create({
+    $posts_rs->create({
       title => "John's first post",
       post => 'Tap, tap, is this thing on?',
       user => $fred,
@@ -506,8 +505,7 @@ database, if it has not yet been).
 
 We can already `find` single rows based on their unique values, and
 `create` new rows. If we try to create a new row using data that
-already matches unique values in the database, we will get an error,
-let's test:
+already matches unique values in the database, we will get an error:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
@@ -536,7 +534,7 @@ let's test:
 Oops! For usernames, this is probably what we want to happen, instead
 of overwriting the existing user, it just fails. It would be more
 useful if it instead returned the existing user row, so that we can
-use it. For example to send the user a password reset email.
+use it--for example, to send the user a password reset email.
 
 `find_or_create` will start by running a `find` based on the primary
 or unique values passed in the data, if it finds a match it will
@@ -570,8 +568,8 @@ new row. If we repeat our exercise using find_or_create:
     print $fred->id;
     print $fred2->id;
 
-Notice that `$fred` and `$fred2` have the same primary key (id), they
-are representing the same row. This technique only works when you are
+Notice that `$fred` and `$fred2` have the same primary key (id); they
+represent the same row. This technique only works when you are
 passing in values for the unique or primary keys.
 
 NOTE: Using find_or_create can produce race conditions, as it does two
