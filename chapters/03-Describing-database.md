@@ -17,7 +17,7 @@ tables and continue to use them throughout the rest of the book.
 Pre-requisites
 --------------
 
-Examples given in this chapter will work with the one-file database [SQLite](http://www.sqlite.org), which can be installed for Perl by installing the CPAN module [DBD::SQLite](http://search.cpan.org/dist/DBD-SQLite).
+Examples given in this chapter will work with the one-file database SQLite[^sqlite], which can be installed for Perl by installing the CPAN module DBD::SQLite[^dbdsqlite].
 
 You should already know what a database is, and understand the basic
 SQL operation CREATE TABLE, refer to [](chapter_02-databases-design-and-layout)
@@ -136,15 +136,19 @@ object can be retrieved from the Schema object if needed, to ask it
 information about the schema, for example to list the known columns on
 a table.
 
-Result classes are only needed for each data source you need to access
+A Result class is required for each table or view you need to access
 or reference in your application. You do not need to create one for
-every table and view in the database.
+every table and view in the database. For example if your database
+contains tables `users`, `posts` and `statistics`, and you do not need
+to access the `statistics` table in the code you are using with
+DBIx::Class, just don't add a Result class for it.
 
 Result classes should inherit from
 **DBIx::Class::Core**[^corecomponent]. This loads a number of useful
 sub-components such as the **PK** (Primary key) component for defining
 and dealing with primary keys, and the **Relationship** component for
-creating relations to other result classes.
+creating relations to other result classes. More details on these
+below in [](chapter_03-a-closer-look-at-result-classes).
 
 ## Getting started, the User class
 
@@ -164,6 +168,15 @@ Our user table looks like this (in mysql or SQLite):
       PRIMARY KEY (id)
     );
 
+The only complexity this class has is the inclusion of a component to
+handle password storage and verification. While this class could be
+shown with plaintext password storage and checking, it is better to show
+re-usable code. You should never store passwords in plain text, always
+always encrypt them. To run this code you will therefore need to
+install the module
+DBIx::Class::InflateColumn::Authen::Passphrase[^authenpassphrase] and
+its dependencies from CPAN.
+
 This is the Result class for the users table:
 
     1. package MyBlog::Schema::Result::User;
@@ -178,8 +191,8 @@ Lines 1-4 are standard Perl code:
 
 - Line 1
 
-The `package` statement tells Perl which module the following code is
-defining.
+The `package` statement tells Perl which namespace the following code is
+in.
 
 - Lines 2 and 3
 
@@ -188,34 +201,37 @@ reporting in Perl.
 
 - Line 4
 
-`use base` tells Perl to make this module inherit from the given module.
+`use base` tells Perl to make this class inherit from the given class.
 
-A note about notation: ___PACKAGE___ is the same as the current
-package name in Perl, and continues to be correct for inherited
-classes, so you will see it all over the example code. It is
-documented in [perldata](http://search.cpan.org/perldoc?perldata).
+A note about notation: `__PACKAGE__` is a Perl keyword which
+represents the current package name. Here it is used to call class
+methods inherited from DBIx::Class::Core to describe the source table
+and its relationships. It is documented in perldata[^perldata].
 
 Then we get to the DBIx::Class specific bits:
 
 - Line 6
 
-`load_components` comes from [DBIx::Class::Componentised](http://search.cpan.org/perldoc?DBIx::Class::Componentised) and is
-used to load a series of modules whose methods can delegate to each
-other. Thus components need to be loaded in a specific order. The
-[DBIx::Class::Core](http://metacpan.org/module/DBIx::Class::Core) component should always be loaded last so that
-its methods are called after those of other components.
+`load_components` is an inherited class method which injects new base
+classes into the module. The arguments are namespaces relative to the
+`DBIx::Class` namespace, or can be specified as a full namespace
+using a `+` prefix. Here we're adding
+`DBIx::Class::InflateColumn::Authen::Passphrase` which will help us
+handle password storage and verificatioon by using the
+`Authen::Passphrase` module. See [](chapter_04-creating-users) for how
+to use it.
 
-Here we're loading an inflate/deflate module to which can inflate database content into an object, and deflate incoming data from an object back into the database. The Authen::Passphrase module hashes passwords as they're entered into the database, and inflate back to an object which can be used to verify them.
-
-For some examples of other useful components, see [](chapter_06-components-and-extending)
+For more components and details on how to write your own, see
+[](chapter_06-components-and-extending).
 
 - Line 7
 
-The `table` method is used to store the name of the database table this class represents. The name of a database view can also be used here. The method is inherited from `DBIx::Class::ResultSourceProxy::Table` which is loaded as a subclass by `DBIx::Class::Core`.
-
-Calling the `table` method sets up the [DBIx::Class::ResultSource](http://search.cpan.org/perldoc?DBIx::Class::ResultSource)
-instance ready for adding columns to, so this method must be
-called __before__ `add_columns` (see below).
+The `table` class method is used to set the name of the database table
+or view this class represents. To use a table in a specific database
+schema[^dbschema] supply the schema name and the table name separated by
+a `.`, for example: `public.users`. This method must be called before calling
+`add_columns` as it also injects the correct base class to make this a
+Table source class.
 
 ### Describing the table structure
 
@@ -251,8 +267,10 @@ Now you can add lines describing the columns in your table.
 - Line 8
 
 `add_columns` is called to define all the columns in your table that
-you wish to tell DBIx::Class about. You may leave out some of the
-table's columns if you wish.
+you wish to tell DBIx::Class about. You do not need to list all the
+available database columns, however unless they have default values
+set in the database, this will prevent you from creating new Rows
+using this class.
 
 The `add_columns` call can provide as much or little description of the
 columns as it likes. In its simplest form, it can contain just a list
@@ -260,15 +278,16 @@ of column names:
 
     __PACKAGE__->add_columns(qw/id realname username password email/);
 
-This will work quite happily.
+This will work quite happily, but will not take advantage of useful
+DBIx::Class functionality, such as fetching the data for
+auto-incrementing columns from the database after a row is created.
 
 The longer version with full column info, used above, has several
 advantages. It can be used to create actual database tables from the
 schema, with all the correct sizes and other attributes. It also
 serves as a useful reminder to the developer of the columns available.
 
-For the full documentation of the `add_columns` method, see the
-DBIx::Class::ResultSource docs.
+We suggest supplying at a minimum, the `data_type` of the column.
 
 - Lines 9 to 12
 
@@ -277,11 +296,26 @@ table. This will store a unique `integer` for each row in the
 table. The primary key will use a self-incrementing field which most
 databases supply, so we set `is_auto_increment` to 1.
 
+Setting the `is_auto_increment` flag to true causes this value to be
+fetched from the database after a new row is created, and stored in
+our `Row` object. It is also used when translating the schema into SQL
+`CREATE TABLE` statements, to setup the column appropriately.
+
 - Line 15
 
-The username column is a `varchar` datatype which requires a `size`
+The `username` column is a `varchar` datatype which requires a `size`
 parameter to tell the database the maximum length data in the column
-can be.
+can be. The MySQL `*TEXT` (TINYTEXT, MEDIUMTEXT, LONGTEXT) types can
+also be used instead, which are character columns with a preset
+lengths.
+
+- Line 21 to 24
+
+The `password` column is another text column, which will store an
+SHA-1[^sha1] representation of the password. The `inflate_passphrase`
+setting is used to tell the
+DBIx::Class::InflateColumn::Authen::Passphrase module which type of
+encryption to use for the passwords.
 
 - Line 31
 
@@ -310,6 +344,68 @@ table has other columns which hold unique values across rows (other
 than the primary key, which must also be unique). The first argument
 is a name for the constraint which can be anything, the second is a
 arrayref of column names.
+
+### A closer look at Result classes
+
+The following is a look at how Result classes work internally. You
+don't necessarily need to know this to use DBIx::Class, however it
+will likely to be useful for debugging and better
+understanding. Result classes are fairly complex entities. They serve
+both as the basis to create a `ResultSource` object to hold the table
+layout definitions, and as a base `Row` object returned from querying
+the database. They are also built by injecting base classes in several
+ways.
+
+Result classes should inherit from `DBIx::Class::Core`. Core is a
+empty class (no code of its own) which inherits from
+`DBIx::Class::Relationship`', `DBIx::Class::InflateColumn`,
+`DBIx::Class::PK`, `DBIx::Class::Row` and
+`DBIx::Class::ResultSourceProxy::Table`. These are all useful parts
+for building Result classes representing tables or views.
+
+Of these, the `ResultSourceProxy::Table` class is the one which sets
+up the ResultSource object and injects the correct type of base class
+for this Result class. The `table` class method does the actual work
+by taking the name of the actual database table in the backend
+database, and constructing the `ResultSource` object based upon
+it. This must be called before the `add_columns` class method which
+only exists in the newly injected base class. To retrieve information
+about your columns and so on later in your code, you can get the
+ResultSource object by calling the `result_source` method on `Row` and
+`ResultSet` objects.
+
+Note: Later on (in
+[](chapter_05-real-or-virtual-views-and-stored-procedures)) we will
+see how to construct a Result class (and thus ResultSource object)
+representing a database view instead of a table. We can of course
+happily pretend that views are tables if we just want to read from
+them.
+
+The `Relationship` base class adds more new injected base classes for
+use with both ResultSource and Row objects. These allow us to
+construct various types of links between our tables. Relationships are
+a fundamental DBIx::Class concept and will be explaing and used
+throughout this book.
+
+The rest of the classes inherited from `Core` are used to add
+functionality to the `Row` objects which result from actual database
+queries. Briefly these are:
+
+* `InflateColumn` - Return objects representing column data instead of scalars, see [](chapter_06-turning-column-data-into-useful-objects)
+
+* `PK` - Provides the `id` and `ident_condition` methods to return the unique value or values represnting the `Row` object.
+
+* `Row` - The bulk of the Row object functionality, provides the `insert`, `update`, `delete` methods plus many many more.
+
+The original idea of all these sub-classes was to allow developers to
+construct Result classes using only a subset of the parts if not all
+of them were needed. However this turns out to be very rarely the
+case, so we advocate using DBIx::Class::Core as your base class.
+
+Note: you may have noticed, if you're actually looking at the source,
+that I skipped over the `PK::Auto` class that `Core` imports. This is
+because it is empty, all the functionality has been moved into the
+`Row` class, closer to where it is used.
 
 ### Cross-Table relationships
 
@@ -499,9 +595,14 @@ You now have a couple of well-defined Result classes we can use to
 actually create and query some data from your database.
 
 
+[^sqlite]: [](http://www.sqlite.org)
+[^dbdsqlite]: [](http://metacpan.org/module/DBD::SQLite)
+[^authenpassphrase]: [](http://metacpan.org/module/DBIx::Class::InflateColumn::Authen::Passphrase)
 [^modernperl]: Read Learning Perl or Modern Perl to gain a basic understanding of Perl classes and packages.
 [^schema]: A collection of classes used to describe a database for DBIx::Class is called a "schema", after the main class, which derives from DBIx::Class::Schema.
+[^dbschema]: Database schemas are used to create subsets of tables in a database, usually to assign different user permissions to sets of tables. They don't exist in all databases, MySQL doesn't have any, and SQLite uses the same notation to 
 [^corecomponent]: It is also possible to inherit purely from the `DBIx::Class` class, and then load the `Core` component, or each required component, as needed. Components will be explained later.
 [^dsn]: Data Source Name, connection info for a database, see [DBI](http://search.cpan.org/perldoc?DBI)
 [^loader]: [](http://metacpan.org/module/DBIx::Class::Schema::Loader)
 [^loaderoptions]: [](http://metacpan.org/module/DBIx::Class::Schema::Loader::Base#CONSTRUCTOR-OPTIONS)
+[^perldata]: [](http://metacpan.org/module/perldata).
