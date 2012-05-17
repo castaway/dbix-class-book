@@ -174,7 +174,7 @@ shown with plaintext password storage and checking, it is better to show
 re-usable code. You should never store passwords in plain text, always
 always encrypt them. To run this code you will therefore need to
 install the module
-DBIx::Class::InflateColumn::Authen::Passphrase[^authenpassphrase] and
+DBIx::Class::InflateColumn::Authen::Passphrase[^dbicap] and
 its dependencies from CPAN.
 
 This is the Result class for the users table:
@@ -213,13 +213,13 @@ Then we get to the DBIx::Class specific bits:
 - Line 6
 
 `load_components` is an inherited class method which injects new base
-classes into the module. The arguments are namespaces relative to the
-`DBIx::Class` namespace, or can be specified as a full namespace
-using a `+` prefix. Here we're adding
+classes into the module. The argument is a list of class names, these
+can be relative to the `DBIx::Class` namespace, or can be specified as
+a full class name using a `+` prefix. Here we're adding
 `DBIx::Class::InflateColumn::Authen::Passphrase` which will help us
 handle password storage and verificatioon by using the
 `Authen::Passphrase` module. See [](chapter_04-creating-users) for how
-to use it.
+it helps us maintain passwords.
 
 For more components and details on how to write your own, see
 [](chapter_06-components-and-extending).
@@ -269,8 +269,11 @@ Now you can add lines describing the columns in your table.
 `add_columns` is called to define all the columns in your table that
 you wish to tell DBIx::Class about. You do not need to list all the
 available database columns, however unless they have default values
-set in the database, this will prevent you from creating new Rows
-using this class.
+set in the database, leaving them out will prevent you from creating
+new database rows using this class.
+
+For every column we list, DBIx::Class will create an accessor method
+on our Row objects later, using the column name we give here.
 
 The `add_columns` call can provide as much or little description of the
 columns as it likes. In its simplest form, it can contain just a list
@@ -287,11 +290,18 @@ advantages. It can be used to create actual database tables from the
 schema, with all the correct sizes and other attributes. It also
 serves as a useful reminder to the developer of the columns available.
 
-We suggest supplying at a minimum, the `data_type` of the column.
+We suggest supplying at a minimum, the `data_type` of the column and
+`is_autoincrement` on self-incrementing columns where appropriate.
+
+Note: Some databases allow column names containing spaces and other
+characters which are not allowed in perl identifiers, and thus cannot
+be used for the accessor method names. To get around this we can add
+another key to our column description named `accessor` and set its
+value to a usable name for the accessor.
 
 - Lines 9 to 12
 
-We add a column called `id` to store the _primary key_ of the
+We add a column called `id` to store the *primary key* of the
 table. This will store a unique `integer` for each row in the
 table. The primary key will use a self-incrementing field which most
 databases supply, so we set `is_auto_increment` to 1.
@@ -301,41 +311,36 @@ fetched from the database after a new row is created, and stored in
 our `Row` object. It is also used when translating the schema into SQL
 `CREATE TABLE` statements, to setup the column appropriately.
 
-- Line 15
+- Lines 17 to 20
 
-The `username` column is a `varchar` datatype which requires a `size`
-parameter to tell the database the maximum length data in the column
-can be. The MySQL `*TEXT` (TINYTEXT, MEDIUMTEXT, LONGTEXT) types can
-also be used instead, which are character columns with a preset
+The `username` column is a `varchar` (string) datatype which requires
+a `size` parameter to tell the database the maximum length data in the
+column can be. The MySQL `*TEXT` (TINYTEXT, MEDIUMTEXT, LONGTEXT)
+types can also be used instead, which are string columns with a preset
 lengths.
 
-- Line 21 to 24
+- Lines 21 to 24
 
 The `password` column is another text column, which will store an
 SHA-1[^sha1] representation of the password. The `inflate_passphrase`
 setting is used to tell the
 DBIx::Class::InflateColumn::Authen::Passphrase module which type of
-encryption to use for the passwords.
+encryption to use for the passwords. `rfc2307` indicates an encoded string which also stores the type of encoding used, see the Authen::Passphrase[^authenpassphrase] module for details.
 
 - Line 31
 
 The `set_primary_key` method tells DBIx::Class which column or columns
-contain your _primary key_ data for this table.
+contain your *primary key* data for this table.
 
-The _primary key_ should contain a column or set of columns that can
-be used to uniquely identify a single row in the table. DBIx::Class
-will use them to delete or update single rows.
+The term `PRIMARY KEY` is used in SQL to define a column or set of
+columns that be used to uniquely identify a single row in the
+table. DBIx::Class uses the same concept to identify rows for update
+or deletion. The same unique values will also be used to connect two
+tables containing related data.
 
-[%# mention this with the create() call ? 
-The primary key columns are used by DBIx::Class to determine which
-values it should add to the row object after it has been inserted into
-the database. They are also used when automatically joining two
-tables.
-
-This and other methods dealing with primary keys are described in
-[DBIx::Class::PK](http://search.cpan.org/perldoc?DBIx::Class::PK).
-
- #%]
+The list of columns for the `set_primary_key` call do not need to
+match the `PRIMARY KEY` in your database, and can even be supplied if
+the database does not have primary keys set at all.
 
 - Line 32
 
@@ -345,7 +350,93 @@ than the primary key, which must also be unique). The first argument
 is a name for the constraint which can be anything, the second is a
 arrayref of column names.
 
-### A closer look at Result classes
+### Cross-Table relationships
+
+The table structure information alone will allow you to query and
+manipulate individual tables using DBIx::Class. However, DBIx::Class'
+strength lies in its ability to create database queries that join data
+across multiple tables. In order to create these queries, the linking
+info between tables needs to be defined. This is done using the
+various _relationship_ methods.
+
+We'll add in a relationship to a `posts` table to demonstrate using
+these. The `posts` table will contain a column called `user_id` to
+indicate which User authored each Post entry.
+
+    32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id');
+
+- Line 32
+
+To describe a _one to many_ relationship we call the `has_many`
+method. For this one, the `posts` table has a column named
+`user_id` that contains the _id_ of a row in the `users` table.
+
+The first argument, `posts`, is a name for the relationship, this is
+used as an accessor to retrieve the related items. It is also used as
+an alias when creating queries to join tables.
+
+The second argument, `MyBlog::Schema::Result::Post`, is the class name
+for the related Result class file.
+
+The third argument, `user_id`, is the column in the related table that
+contains the primary key of the table we are writing the relationship
+on.
+
+Note: When the Schema class is loaded, all relationship classes are
+verified, so this `has_many` line will cause the code not to compile
+until the `Post` Result class exists. We will be adding it soon,
+comment out this line for now if you wish to check if your schema
+compiles.
+
+Other relationship types are available:
+
+* belongs_to
+    
+    The `Posts` table has a column named `user_id` which is used to
+store the `id` value of the user that authored the post. We create a
+`belongs_to` relationship called `user` on the `Post` class, which
+will return the user object for that author. SQL calls this a `FOREIGN
+KEY` column.
+
+        __PACKAGE__->belongs_to('user', 'MyBlog::Schema::Result::Post', 'user_id');
+
+* has_one
+
+    An `Address` table contains one home address row for each
+user. The `Address` table contains a `user_id` column to store the
+`id` of user living at this address. In the `User` class we setup a
+`has_one` call to state this relationship.
+
+        __PACKAGE__->has_one('home_address', 'MyBlog::Schema::Result::Address', 'user_id');
+
+    `has_one` is like a `has_many` call except that it knows in
+advance it will will have exactly one match, so the accessor method
+will return one object, not a set of possibly zero or more.
+
+    On the `Address` class, we add a `belongs_to` relationship just like in the `Post` class.
+
+* might_have
+
+    The `User` may or may not have a home address in our database, we
+want to make it optional to provide that information (hooray!). We
+create a `might_have` relationship instead of the `has_one`. The
+difference between these two is that any SQL queries between the two
+tables will include a `LEFT` keyword in the `JOIN` statement. This
+tells the database that we want all Users, regardless of whether they
+have an Address entry or not.
+
+        __PACKAGE__->might_have('home_address', 'MyBlog::Schema::Result::Address', 'user_id');
+
+
+Note: There is no corresponding `might_belong_to` relationship. We can
+configure a `belongs_to` relationship to allow for example, a post to
+exist without an author. To do this, set the `join_type` attribute in
+the fourth argument to the relationship call:
+
+        __PACKAGE__->belongs_to('user', 'MyBlog::Schema::Result::Post', 'user_id', { join_type => 'LEFT' });
+
+
+## A closer look at Result classes
 
 The following is a look at how Result classes work internally. You
 don't necessarily need to know this to use DBIx::Class, however it
@@ -384,7 +475,7 @@ them.
 The `Relationship` base class adds more new injected base classes for
 use with both ResultSource and Row objects. These allow us to
 construct various types of links between our tables. Relationships are
-a fundamental DBIx::Class concept and will be explaing and used
+a fundamental DBIx::Class concept and will be explained and used
 throughout this book.
 
 The rest of the classes inherited from `Core` are used to add
@@ -402,77 +493,12 @@ construct Result classes using only a subset of the parts if not all
 of them were needed. However this turns out to be very rarely the
 case, so we advocate using DBIx::Class::Core as your base class.
 
-Note: you may have noticed, if you're actually looking at the source,
+Note: You may have noticed, if you're actually looking at the source,
 that I skipped over the `PK::Auto` class that `Core` imports. This is
 because it is empty, all the functionality has been moved into the
 `Row` class, closer to where it is used.
 
-### Cross-Table relationships
-
-The table structure information alone will allow you to query and
-manipulate individual tables using DBIx::Class. However, DBIx::Class'
-strength lies in its ability to create database queries that join
-across multiple tables. In order to create these queries, the linking
-info between tables needs to be defined. This is done using
-_relationship_ methods.
-
-    32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id');
-
-- Line 32
-
-To describe a _one to many_ relationship we call the `has_many`
-method. For this one, the `posts` table has a column named
-`user_id` that contains the _id_ of a row in the `users` table.
-
-The first argument, `posts`, is a name for the relationship, this is
-used as an accessor to retrieve the related items. It is also used
-when creating queries to join tables.
-
-The second argument, `MyBlog::Schema::Result::Post`, is the class name
-for the related Result class file.
-
-The third argument, `user_id`, is the column in the related table that
-contains the primary key of the table we are writing the relationship
-on.
-
-### Notes on Result classes
-
-- Data types
-
-    The `data_type` field for each column in the `add_columns` is a free
-text field. It is only used by DBIx::Class when deploying (creating
-tables) the schema to a database. At that point `data_type` values
-are converted to the appropriate type for your database by
-[SQL::Translator](http://search.cpan.org/perldoc?SQL::Translator).
-
-- Column names
-
-    In an ideal world, all column names in your database would be valid
-perl identifiers, that is consist of only word [a-zA-Z_] or digit
-[0-9] characters. As this is not always the case, the column info
-hashref for each column can also contain an `accessor` key which
-provides a valid perl identifier name which will be used to create the
-accessor method for the column.
-
-[%# this goes elsewhere!
-Note that the original name will still need to be used when creating new rows or searching on the database.
-#%]
-
-- More relationship types
-
-* belongs_to
-
-    Defines an accessor method for fetching the foreign row referenced by a foreign key column. 
-
-* has_one
-
-    Creates an accessor for fetching a single row that contains our _primary key_. This is like `has_many` but assumes exactly one matching row.
-
-* might_have
-
-    Accessor for a single matching row that contains our _primary key_. Very similar to `has_one`, but creates a `left` type join as the related row may not exist at all.
-
-### Your turn, The Post class
+## Your turn, The Post class
 
 The posts table looks like this in mysql:
 
@@ -492,14 +518,14 @@ You will need to create a `belongs_to` relationship for this class. Use it like 
     __PACKAGE__->belongs_to('user', 'MyBlog::Schema::Result::User', 'user_id');
 
 As before, the first argument, `user`, is the name of the
-relationship, used as an accessor to get the related _User_
+relationship, used as an accessor to get the related `User`
 object. It is also used in searching to join across the tables.
 
-The second argument is the related class, the _User_ class we created
+The second argument is the related class, the `User` class we created
 before.
 
 The third argument is the column in the current class that contains
-the primary key of the related class, the _foreign key_ column.
+the primary key of the related class, the *foreign key* column.
 
 Create the Result class for it as MyBlog::Schema::Result::Post.
 
@@ -597,7 +623,8 @@ actually create and query some data from your database.
 
 [^sqlite]: [](http://www.sqlite.org)
 [^dbdsqlite]: [](http://metacpan.org/module/DBD::SQLite)
-[^authenpassphrase]: [](http://metacpan.org/module/DBIx::Class::InflateColumn::Authen::Passphrase)
+[^dbicap]: [](http://metacpan.org/module/DBIx::Class::InflateColumn::Authen::Passphrase)
+[^authenpassphrase]: [](http://metacpan.org/module/Authen::Passphrase)
 [^modernperl]: Read Learning Perl or Modern Perl to gain a basic understanding of Perl classes and packages.
 [^schema]: A collection of classes used to describe a database for DBIx::Class is called a "schema", after the main class, which derives from DBIx::Class::Schema.
 [^dbschema]: Database schemas are used to create subsets of tables in a database, usually to assign different user permissions to sets of tables. They don't exist in all databases, MySQL doesn't have any, and SQLite uses the same notation to 
