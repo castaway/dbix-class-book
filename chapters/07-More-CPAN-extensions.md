@@ -32,7 +32,7 @@ Installing, Versioning and Migrating
 So far we've looked at how to describe the database layout in Perl
 classes and how to use it to interact with data in the database
 itself. In
-[](chapter_03-making-a-database-using-dbix-class)
+[](chapter_03-create-a-database-using-dbix-class)
 and in the various exercises we saw that running the `deploy` method
 on a connected Schema object will create the described tables in the
 database.

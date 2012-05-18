@@ -529,35 +529,76 @@ the primary key of the related class, the *foreign key* column.
 
 Create the Result class for it as MyBlog::Schema::Result::Post.
 
-#### Test it!
+When you're done, run this test which you can find in the
+_create-post-class.t_ file in the downloadable content for this
+chapter.
 
-See appendix ## or the downloadable content for the skeleton Chapter 3 code. Add your Post.pm file to the lib/MyBlog/Schema/Result/ directory. Run the test in t/create-post-class.t file.
+    #!/usr/bin/perl
+
+    use strict;
+    use warnings;
+
+    use Test::More;
+
+    use_ok('MyBlog::Schema');
+
+    my $db = 't/var/test.db';
+    unlink $db;
+
+    my $schema = MyBlog::Schema->connect("dbi:SQLite:$db");
+    $schema->deploy();
+
+    ## New Post source must exist;
+    ok($schema->source('Post'), 'Post source exists in schema');
+
+    ## Not running source tests if not there, will have failed above already
+    SKIP: {
+        my $source = $schema->source('Post');
+        skip "Source Post not found", 7 if(!$source);
+
+        ## Expected columns:
+        foreach my $col (qw/id user_id created_date title post/) {
+            ok($schema->source('Post')->has_column($col), "Found expected Post column '$col'");
+        }
+        is_deeply([$schema->source('Post')->primary_columns()], ['id'], 'Found expected primary key col "id" in Post source');
+
+
+        ## Expected relationships:
+        ok($schema->source('Post')->relationship_info('user'), 'Found a relationship named "user" in the Post source');
+        is($schema->source('Post')->relationship_info('user')->{attrs}{accessor}, 'single', 'User relationship in Post source is a single accessor type');
+    }
+
+    done_testing(10);
 
 Basic usage
 -----------
 
-### Create a database
+### Create a database from SQL
 
-In the appendix ## and in the downloadable content, there is an .sql
-file containing the tables described in this chapter. To run this you will need [the SQLite DBD](http://search.cpan.org/dist/DBD-SQLite), which should have been installed along with DBIx::Class, then you can create the database like this:
+If you already have an SQL file, or you feel more comfortable writing
+one, you can create your initial database layout using it. In the
+downloadable content for this chapter you will find the _myblog.sql_
+file which contains the SQL for the two tables we've been looking
+at. To create an SQLite database we will need the SQLite
+DBD[^dbdsqlite], which should have been installed along with
+DBIx::Class, then run the built-in `sqlite3` binary:
 
     sqlite3 myblog.db < myblog.sql
 
-### Making a database using DBIx::Class
+### Create a database using DBIx::Class
 
-DBIx::Class can also be used to create a database using your class files. To do this you will need the [SQL::Translator](http://search.cpan.org/dist/SQL-Translator) package installed.
+DBIx::Class can also be used to create a database using your class files. To do this you will need the SQL::Translator[^sqlt] package installed.
 
-First `connect` to the Schema class (this returns a Schema object), using a DSN[^dsn]. The `deploy` method on the Schema object calls SQL::Translator to output the appropriate SQL CREATE statements for the chosen database given in the DSN, then it sends the statements to the database itself.
+First `connect` to the Schema class (this returns a Schema object), using a DSN[^dsn]. Then use the `deploy` method on the Schema object. This calls SQL::Translator to create a set of SQL CREATE statements for the database we connected to, then it sends the statements to the database itself.
 
     perl -MMyBlog::Schema -le'my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db"); $schema->deploy();'
 
-We will discuss [](chapter_07-installing-versioning-and-migrating) more
-at length later when talking about how to change your schema without
+We will discuss more about deploying in [](chapter_07-installing-versioning-and-migrating) when talking about how to change your schema without
 having to destroy your existing data.
 
 ### Quick usage 
 
-A short script to test your classes:
+A short script to try out your classes:
 
     #!/usr/bin/env perl
     use strict;
@@ -614,11 +655,12 @@ in. Refer to the whole list in the documentation[^loaderoptions]. Some
 of these will make more sense as you go through the book, refer back
 to the options documentation as you go.
 
-CONCLUSIONS
+What's next
 -----------
 
 You now have a couple of well-defined Result classes we can use to
-actually create and query some data from your database.
+actually create and query some data from your database. On to chapter
+4 where we look at how to that and much more.
 
 
 [^sqlite]: [](http://www.sqlite.org)
@@ -633,3 +675,5 @@ actually create and query some data from your database.
 [^loader]: [](http://metacpan.org/module/DBIx::Class::Schema::Loader)
 [^loaderoptions]: [](http://metacpan.org/module/DBIx::Class::Schema::Loader::Base#CONSTRUCTOR-OPTIONS)
 [^perldata]: [](http://metacpan.org/module/perldata).
+[^dbdsqlite]: [](http://metacpan.org/module/DBD::SQLite)
+[^sqlt]: [](http://metacpan.org/module/SQL::Translator)
