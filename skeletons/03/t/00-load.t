@@ -1,10 +1,9 @@
-#!perl -T
+#!/usr/bin/env perl 
 
 use Test::More;
 
 BEGIN {
-    use_ok( 'MyBlog::Schema' ) || print "Bail out!
-";
+    use_ok( 'MyBlog::Schema' ) || print "Bail out!\n";
 }
 
 diag( "Testing MyBlog::Schema $MyBlog::Schema::VERSION, Perl $], $^X" );

@@ -1,12 +1,10 @@
 Changes
-MANIFEST
-Makefile.PL
-README
+exercises/create-post-class/lib/MyBlog/Schema/Result/Post.com
 lib/MyBlog/Schema.pm
 lib/MyBlog/Schema/Result/User.pm
-t/var
+Makefile.PL
+MANIFEST
+README
 t/00-load.t
 t/create-post-class.t
-t/manifest.t
-t/pod-coverage.t
-t/pod.t
+t/var

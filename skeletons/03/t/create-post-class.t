@@ -11,10 +11,12 @@ my $db = 't/var/test.db';
 unlink $db;
 
 my $schema = MyBlog::Schema->connect("dbi:SQLite:$db");
+$schema->deploy();
 
 ## New Post source must exist;
 ok($schema->source('Post'), 'Post source exists in schema');
 
+## Not running source tests if not there, will have failed above already
 SKIP: {
     my $source = $schema->source('Post');
     skip "Source Post not found", 7 if(!$source);

@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use base 'DBIx::Class::Core';
 
+__PACKAGE__->load_components(qw(InflateColumn::Authen::Passphrase));
 __PACKAGE__->table('users');
 
 __PACKAGE__->add_columns(
@@ -23,6 +24,7 @@ __PACKAGE__->add_columns(
     password => {
       data_type => 'varchar',
       size => 255,
+      inflate_passphrase => 'rfc2307',
     },
     email => {
       data_type => 'varchar',
