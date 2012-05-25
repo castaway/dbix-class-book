@@ -25,6 +25,8 @@ if you need to. We will also assume that you know the basics of
 writing Perl classes (and packages), and the keywords that go with
 them. [^modernperl]
 
+Download the skeleton code for this chapter: [](http://dbix-class.org/book/code/chapter03.zip).
+
 Introduction
 ------------
 
@@ -218,7 +220,7 @@ can be relative to the `DBIx::Class` namespace, or can be specified as
 a full class name using a `+` prefix. Here we're adding
 `DBIx::Class::InflateColumn::Authen::Passphrase` which will help us
 handle password storage and verificatioon by using the
-`Authen::Passphrase` module. See [](chapter_04-creating-users) for how
+`Authen::Passphrase` module. See [](chapter_04-creating-user-rows) for how
 it helps us maintain passwords.
 
 For more components and details on how to write your own, see
@@ -349,6 +351,20 @@ table has other columns which hold unique values across rows (other
 than the primary key, which must also be unique). The first argument
 is a name for the constraint which can be anything, the second is a
 arrayref of column names.
+
+Note: We've just looked at some of the available keys available for
+setting on columns. Here are the other available keys and their
+uses. Some of these will be put into use later:
+
+default_value
+:    string, number or scalar reference (for a function or other literal SQL)
+
+is_nullable
+:    true or false value (default is false) which sets up the table in the database to allow `NULL` values in this column. `NULL` is a special SQL keyword which means "no value". DBIx::Class represents NULL values with `undef`.
+
+retrieve_on_insert
+:    fetch the value for this column from the database after we create a new row. This is useful for automatically created such as timestamps.
+
 
 ### Cross-Table relationships
 
@@ -507,7 +523,7 @@ The posts table looks like this in mysql:
       user_id INT,
       created_date DATETIME,
       title VARCHAR(255),
-      post TEXT,
+      post VARCHAR(255),
       INDEX posts_idx_user_id (user_id),
       PRIMARY KEY (id),
       CONSTRAINT posts_fk_user_id FOREIGN KEY (user_id) REFERENCES users (id)
@@ -654,6 +670,11 @@ to get tables from, and choose which `dump_directory` to put the files
 in. Refer to the whole list in the documentation[^loaderoptions]. Some
 of these will make more sense as you go through the book, refer back
 to the options documentation as you go.
+
+The created Result class files will by default be named in the
+singular, so a table named `users` will produce a class named
+`User`. The classes will also contain appropriate relationships, as
+long as the database contains the appropriate constraints.
 
 What's next
 -----------

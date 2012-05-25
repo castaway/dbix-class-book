@@ -9,9 +9,9 @@ In this chapter we will show how to do basic database operations using your DBIx
 Pre-requisites
 --------------
 
-We will be giving code examples and comparing them to the SQL statements that they produce. You should have basic SQL knowledge to understand this chapter. The database we are using is provided as an SQL file to import into an [SQLite database](http://search.cpan.org/dist/DBD-SQLite) to get started. You should also have basic knowledge of object-oriented code and Perl classes.
+We will be giving code examples and comparing them to the SQL statements that they produce. You should have basic SQL knowledge to understand this chapter. The database we are using is provided as an SQL file to import into an SQLite database[^sqlite] to get started. You should also have basic knowledge of object-oriented code and Perl classes.
 
-[Download code](http://dbix-class.org/book/code/chapter04.zip) / preparation?
+Download the skeleton code for this chapter:[](http://dbix-class.org/book/code/chapter04.zip).
 
 Introduction
 ------------
@@ -20,35 +20,42 @@ The DBIx::Class classes (also called your DBIC schema) contain all the data need
 
 ## Create a Schema object using a database connection
 
-All the database manipulation with DBIx::Class is done via one central Schema object, which maintains the connection to the database via a [storage object](http://metacpan.org/module/DBIx::Class::Storage). To create a schema object, call `connect` on your DBIx::Class::Schema subclass, passing it a Data Source Name[^dsn].
+All the database manipulation with DBIx::Class is done via one central Schema object, which maintains the connection to the database via a storage object[^storage]. To create a schema object, call `connect` on your DBIx::Class::Schema subclass, passing it a Data Source Name[^dsn].
 
     my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db");
     
-Keep the `$schema` object in scope. If it disappears, other DBIx::Class objects you have floating about will stop working.
-
 To pass a username and password for the database, just add the strings as extra arguments to `connect`, for example when using MySQL:
 
-    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", 
+                                         "myuser", 
+                                         "mypassword"
+                                        );
 
-You can also pass various [DBI](http://metacpan.org/dist/DBI) connection parameters by passing a fourth argument containing a hashref. This is also used by DBIx::Class to set options such as the correct type of quote to use when quoting table names, eg:
+You can also pass various DBI[^dbi] connection parameters by passing a fourth argument containing a hashref. This is also used by DBIx::Class to set options such as the instruction to quote all table and column names in the SQL, eg:
 
-    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword", { quote_char => "`'", quote_sep => '.' });
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", 
+                                         "myuser", 
+                                         "mypassword", 
+                                         { quote_names => 1 }
+                                        );
 
-For more detailed information about all the available connection arguments, see the [connect_info documentation](http://search.cpan.org/perldoc?DBIx::Class::Storage::DBI).
+For more detailed information about all the available connection arguments, see the connect_info documentation[^connectinfo].
 
 ## Accessing data, the empty query aka ResultSet
 
-To manipulate any data in your database, you first need to create a **ResultSet** object. A ResultSet is an object representing a potential query. It represents the conditions and joins needed to produce the SQL statement.
+To manipulate any data in your database, you first need to create a **ResultSet** object. A ResultSet is an object representing a potential query. It stores the conditions and joins needed to produce the SQL statement. Each ResultSet is based on a single ResultSource (table) and can add joins to other tables for filtering or extra data.
 
-ResultSets can be fetched using the **Result class** names. For example, `User.pm` describes the `users` table. To fetch its ResultSet, using the `resultset` method:
+To get a ResultSet object, we call the Schema `resultset` method, passing the name of a **Result class**. For example, `User.pm` describes the `users` table. To fetch its ResultSet, using the `resultset` method:
 
     my $users_rs = $schema->resultset('User');
 
+Note: If you are using an automatically created set of Result classes (as described at the end of [](chapter_03-alternative-class-creation)), do take a good look at the created classes. Generally auto-created classes will be named in the singular, that is table `users` will produce a class named `User`. Linking tables, will be turned into CamelCase[^camelcase], so a table named `user_roles` will be converted to a class named `UserRoles`.
+
 Now we can move on to some actual database operations ... 
 
-## Creating users
+## Creating user rows
 
-Now that we have a ResultSet, we can start adding some data. To create one user, we can collect all the relevant data, and initiate and insert the **Row** all at once, by calling the `create` method:
+Now that we have a ResultSet, we can start adding some data. To create one user, we can collect all the relevant data, and then initiate and insert the **Row** all at once, by calling the `create` method:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
@@ -760,6 +767,10 @@ This test can be found in the file **advanced_methods.t**.
     
     done_testing;
     
+[^sqlite]: [](http://metacpan.org/module/DBD::SQLite)
+[^storage]: Storage backend, only available one is DBI, []((http://metacpan.org/module/DBIx::Class::Storage)
+[^dbi]: [](http://metacpan.org/dist/DBI)
+[^connectinfo]: [](http://metacpan.org/module/DBIx::Class::Storage::DBI#connect_info)
 [^new_result]: new_result creates a Row object that stores the data given, but does not enter it into the database. The `in_storage` method can be used to check the status of a Row object (true == is in the database).
 [^DBIC_TRACE]: An environment variable to turn on debugging info which dumps the SQL queries made. Use `set DBIC_TRACE=1` on Windows or csh, and `export DBIC_TRACE=` on bash-like shells.
 [^dsn]: See the DBI documentation for more on how these work, essentially they consist of `dbi:` followed by the name of the DBD (database driver) you are using, eg `SQLite:`, followed by a custom description of the actual database, depending on driver used.

@@ -581,7 +581,7 @@ uses that functionality itself.
 
 Now edit the `add_columns` call to include the new keys
 `set_on_create` and `set_on_update` in the column info hashref for the
-`created_on` field to control when the values are set:
+`created_date` field to control when the values are set:
 
     package MyBlog::Schema::Result::Post;
 
