@@ -7,6 +7,7 @@ use warnings;
 
 use base 'DBIx::Class::Core';
 
+__PACKAGE__->load_components(qw/InflateColumn::DateTime/);
 __PACKAGE__->table('posts');
 __PACKAGE__->add_columns(
     id => {

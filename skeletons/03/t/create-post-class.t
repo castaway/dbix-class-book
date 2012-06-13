@@ -21,6 +21,9 @@ SKIP: {
     my $source = $schema->source('Post');
     skip "Source Post not found", 7 if(!$source);
 
+    ## Expected component
+    isa_ok($schema->source('Post'), 'DBIx::Class::InflateColumn::DateTime', 'DateTime component has been added');
+
     ## Expected columns:
     foreach my $col (qw/id user_id created_date title post/) {
         ok($schema->source('Post')->has_column($col), "Found expected Post column '$col'");

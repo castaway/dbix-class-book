@@ -543,6 +543,11 @@ before.
 The third argument is the column in the current class that contains
 the primary key of the related class, the *foreign key* column.
 
+You should also use the
+DBIx::Class::InflateColumn::DateTime[^datetime] component, which will
+turn the `created_date` field into a DateTime object for you. No
+configuration is needed.
+
 Create the Result class for it as MyBlog::Schema::Result::Post.
 
 When you're done, run this test which you can find in the
@@ -572,6 +577,9 @@ chapter.
         my $source = $schema->source('Post');
         skip "Source Post not found", 7 if(!$source);
 
+        ## Expected component
+        isa_ok($schema->source('Post'), 'DBIx::Class::InflateColumn::DateTime', 'DateTime component has been added');
+
         ## Expected columns:
         foreach my $col (qw/id user_id created_date title post/) {
             ok($schema->source('Post')->has_column($col), "Found expected Post column '$col'");
@@ -584,7 +592,7 @@ chapter.
         is($schema->source('Post')->relationship_info('user')->{attrs}{accessor}, 'single', 'User relationship in Post source is a single accessor type');
     }
 
-    done_testing(10);
+    done_testing(11);
 
 If you get stuck you can look at the copy of the Post class provided in the _exercises_ section of the downloadable code. You will need this class for later chapters, so make sure you have a working copy before continuing.
 
@@ -700,3 +708,4 @@ actually create and query some data from your database. On to chapter
 [^perldata]: [](http://metacpan.org/module/perldata).
 [^dbdsqlite]: [](http://metacpan.org/module/DBD::SQLite)
 [^sqlt]: [](http://metacpan.org/module/SQL::Translator)
+[^datetime]: The module is included as part of the DBIx::Class distribution, so no need to install it. The documentation can be viewed here: [](http://metacpan.org/module/DBIx::Class::InflateColumn::DateTime)
