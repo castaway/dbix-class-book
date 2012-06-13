@@ -187,7 +187,7 @@ Here's an example that will add Fred and Alice at the same time.
     $users_rs->populate([
       [qw/realname username password email/],
       ['Fred Bloggs', 'fred', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass')->as_rfc2307, 'fred@bloggs.com'],
-      ['Alice Bloggs, 'alice', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred')->as_rfc2307, 'alice@bloggs.com']
+      ['Alice Bloggs', 'alice', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred')->as_rfc2307, 'alice@bloggs.com']
     ]);
 
 Note how we need to call `as_rfc2307` on the Authen::Passphrase object
@@ -213,7 +213,7 @@ DBIx::Class **Row** objects for later use:
       email    => 'fred@bloggs.com',
     },
     {
-      realname => 'Alice Bloggs, 
+      realname => 'Alice Bloggs', 
       username => 'alice', 
       password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred'), 
       email    => 'alice@bloggs.com',
@@ -421,7 +421,7 @@ To run the test you will need to install the XML::Simple[^xmlsimple] module.
 
     my $alice = $schema->resultset('Uesr')->create(
     {
-      realname => 'Alice Bloggs, 
+      realname => 'Alice Bloggs', 
       username => 'alice', 
       password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred'), 
       email    => 'alice@bloggs.com',
@@ -452,23 +452,25 @@ To run the test you will need to install the XML::Simple[^xmlsimple] module.
 ## Update many rows at once, getting rid of rude names
 
 We've seen how to interact with a single database row at a time, how
-to fetch and update it. We can also update a whole set of rows with a
-change that applies to all rows at once.
+to fetch and update it. It is also possible to update a whole set of
+rows with a change that applies to all rows at once.
 
-We failed initially to exclude any words from our signup validation,
-so users have been created with rude words as real names, which will be
-displayed to other users.
+Let's assume we initially forgot to exclude any words from our user
+signup validation, so users have been created with rude words as real
+names, which will be displayed to other users.
 
-First we search for the users that match our disallowed list, we can
-use the `-like` operator to match parts of strings, an arrayref creates
-a list of alternate conditions:
+First we need to search for the users that match our disallowed
+list, for this we can use the `-like` operator to match parts of
+strings. Using an arrayref of values produces a set of OR'd conditions
+in the SQL:
 
 (Pick your own set of unwanted words ;)
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
 
-    my @badwords = ('john', 'joe', 'joseph');
+    ## I just don't like names beginning with J
+    my @badwords = ('john', 'joe', 'joseph', 'jess', 'james');
     my $badusers_rs = $users_rs->search({
       realname => [ map { { '-like' => "%$_%"} } @badwords ],
     });
@@ -476,7 +478,17 @@ a list of alternate conditions:
 The result is a ResultSet which contains the condition we want. Now we
 can update all the rows at once by applying `update` to the ResultSet.
 
-   $badusers_rs->update({ realname => 'XXXX' });
+    $badusers_rs->update({ realname => 'XXXX' });
+
+Here's the SQL this outputs, to show you what is going on:
+
+    UPDATE users SET realname = 'XXXX' WHERE
+    realname LIKE '%john%' OR realname LIKE '%joe%' OR
+    realname LIKE '%joseph%' OR realname like '%jess%' OR
+    realname LIKE '%james%';
+    
+Note that the "%" character is a wildcard in the LIKE operator, and
+matches any number of unspecified characters.
 
 ## Deleting a row or rows, and cascading
 
@@ -493,7 +505,7 @@ the `delete` method on it:
     my $fred2 = $users_rs->find({ username => 'fred2' });
     $fred2->delete;
 
-Poof, gone. The `$fred` object is still there, with its contents, but
+Poof, gone. The `$fred2` object is still there, with its contents, but
 the data it represented in the database is gone. To discover whether
 an object you have represents actual data, use the `in_storage`
 method, the result will be `0` (false) when the row data is not yet or
@@ -502,20 +514,24 @@ no longer in the database, and `1` (true) if it is.
 Your database will automatically remove any rows related to this one
 using foreign keys, if set up correctly. This means all posts created
 by the user *fred2* will be deleted. If the database does not remove
-them, DBIx::Class will make an attempt itself, as the `has_many`
-relation is set up to cascade deletes by default. To change this
+them, DBIx::Class will make an attempt itself, using the `has_many`
+relation which is set up to cascade deletes by default. To change this
 behaviour, set up the relationship with `cascade_delete` set to 0:
 
-    32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id', { cascade_delete => 0 });
+    32. __PACKAGE__->has_many('posts', 
+                              'MyBlog::Schema::Result::Post', 
+                              'user_id', 
+                              { cascade_delete => 0 },
+                             );
 
 
 To remove multiple rows at once, create a resultset object that matches the
-rows to remove, and call the `delete` method on it:
+rows to remove, using `search`, then call the `delete` method on it:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
 
-    my @badwords = ('john', 'joe', 'joseph');
+    my @badwords = ('john', 'joe', 'joseph', 'jess', 'james');
     my $users_to_delete = $users_rs->search({
       realname => [ map { { 'like' => "%$_%"} } @badwords ],
     });
@@ -523,15 +539,16 @@ rows to remove, and call the `delete` method on it:
 
 Don't forget to backup your data before you try these, just in
 case. If you are trying to hide or deactivate data, consider having a
-field in your table for `archived` or similar, and setting it to a
-true value to indicate the data is no longer in use.
+field in your table for `archived` or similar, and use the `update`
+method instead of `delete` to just change the `archived` field value
+to indicate the data is no longer in use.
 
 ## Advanced create/update/delete
 
 Now we go a bit wild. There are a bunch of useful methods and
 techniques which simplify your code by combining methods
 we've already looked at in this chapter. I'll give a description and
-usage hint for each one, then we'll do some more tests.
+usage hint for each one, then we'll do some more tests/exercises.
 
 * Multi-create
 
@@ -596,7 +613,7 @@ You can also do this:
 
 
 Related objects are added using the relation name, and using a hashref
-(for foreign key relationships) or an arrayref hashrefs (the other
+(for foreign key relationships) or an arrayref of hashrefs (the other
 side, has_many, has_one, might_have) to add the data. Or you can link
 to another row using the row object (which will be inserted into the
 database, if it has not yet been).
