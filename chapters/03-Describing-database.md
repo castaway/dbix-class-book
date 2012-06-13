@@ -220,8 +220,8 @@ can be relative to the `DBIx::Class` namespace, or can be specified as
 a full class name using a `+` prefix. Here we're adding
 `DBIx::Class::InflateColumn::Authen::Passphrase` which will help us
 handle password storage and verificatioon by using the
-`Authen::Passphrase` module. See [](chapter_04-creating-user-rows) for how
-it helps us maintain passwords.
+`Authen::Passphrase` module. See [](chapter_04-creating-user-rows) for
+examples of how it helps us maintain passwords.
 
 For more components and details on how to write your own, see
 [](chapter_06-components-and-extending).
@@ -585,6 +585,8 @@ chapter.
     }
 
     done_testing(10);
+
+If you get stuck you can look at the copy of the Post class provided in the _exercises_ section of the downloadable code. You will need this class for later chapters, so make sure you have a working copy before continuing.
 
 Basic usage
 -----------

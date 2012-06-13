@@ -22,9 +22,13 @@ The DBIx::Class classes (also called your DBIC schema) contain all the data need
 
 All the database manipulation with DBIx::Class is done via one central Schema object, which maintains the connection to the database via a storage object[^storage]. To create a schema object, call `connect` on your DBIx::Class::Schema subclass, passing it a Data Source Name[^dsn].
 
+    use MyBlog::Schema;
+
     my $schema = MyBlog::Schema->connect("dbi:SQLite:myblog.db");
     
 To pass a username and password for the database, just add the strings as extra arguments to `connect`, for example when using MySQL:
+
+    use MyBlog::Schema;
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", 
                                          "myuser", 
@@ -33,6 +37,8 @@ To pass a username and password for the database, just add the strings as extra 
 
 You can also pass various DBI[^dbi] connection parameters by passing a fourth argument containing a hashref. This is also used by DBIx::Class to set options such as the instruction to quote all table and column names in the SQL, eg:
 
+    use MyBlog::Schema;
+
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", 
                                          "myuser", 
                                          "mypassword", 
@@ -40,6 +46,10 @@ You can also pass various DBI[^dbi] connection parameters by passing a fourth ar
                                         );
 
 For more detailed information about all the available connection arguments, see the connect_info documentation[^connectinfo].
+
+As seen in the previous chapter, [](chapter_03-create-a-database-using-dbix-class), the `$schema` can be used to create the actual database tables and other structure ready for use. To continue, you will need a working database, so make sure you have one before moving on. For a quick start, run the `deploy` command:
+
+    $schema->deploy();
 
 ## Accessing data, the empty query aka ResultSet
 
@@ -55,10 +65,13 @@ Now we can move on to some actual database operations ...
 
 ## Creating user rows
 
-Now that we have a ResultSet, we can start adding some data. To create one user, we can collect all the relevant data, and then initiate and insert the **Row** all at once, by calling the `create` method:
+Now that we have a ResultSet, we can start storing some data in our database. To create a user, we can collect all the relevant data, and then initiate and insert the new **Row** all at once, by calling the `create` method:
+
+    use Authen::Passphrase::SaltedDigest;
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
+    
     my $fred = $users_rs->create({
       realname => 'Fred Bloggs',
       username => 'fred',
@@ -69,13 +82,31 @@ Now that we have a ResultSet, we can start adding some data. To create one user,
       ),
       email => 'fred@bloggs.com',
     });
-    
-`create` is the equivalent of calling the `new_result`[^new_result] method, which
-returns a **Row** object, and then calling the `insert` method on it,
-so you can also do this:
+
+Note here that the `password` value is an object which encrypts the
+actual password "mypass" using `SHA-1`. The `InflateColumn` component
+we added to the User class in
+[](chapter_03-getting-started-the-user-class), allows us to pass in an
+object as a value, instead of a plain scalar (string or number). The
+component will reduce the result to a string in the database, and
+re-create the object when we re-fetch the row data later on.
+
+`create` is the equivalent of calling the `new_result`[^new_result]
+method, which returns a **Row** object, and then calling the `insert`
+method on the row. `new_result` makes a fresh Row object, storing the
+values we passed in, but does not insert it into the database. The Row
+object can then be used or passed around to change its data or add
+more, any constraints are not checked until we try and insert it into
+the database.
+
+We can create the same user a different way, using `new_result`
+instead and setting the values separately:
+
+    use Authen::Passphrase::SaltedDigest;
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
+    
     my $fred = $users_rs->new_result();
     $fred->realname('Fred Bloggs');
     $fred->username('fred');
@@ -85,25 +116,26 @@ so you can also do this:
          passphrase => 'mypass',
     ));
     $fred->email('fred@bloggs.com');
+    
     $fred->insert();
 
-Note how all the columns described in the `User.pm` class using `add_columns` appear on the **Row object** as accessor methods.
+Note how all the columns described in the `User` class using `add_columns` appear on the **Row object** as accessor methods.
 
-To see what's going on, set the shell environment variable [^DBIC_TRACE] to a true value, and DBIx::Class will display the SQL statement for either of these code samples on STDOUT:
+To see what's going on, we can set the shell environment variable [^DBIC_TRACE] to a true value, and DBIx::Class will display the SQL statement for either of these code samples on STDOUT:
 
-    INSERT INTO users (realname, username, password, email) VALUES (?, ?, ?, ?): 'Fred Bloggs', 'fred', 'XXYYZZ', 'fred@bloggs.com'
+    INSERT INTO users (realname, username, password, email) VALUES (?, ?, ?, ?): 'Fred Bloggs', 'fred', '{SSHA}GGccJQItu3l8a4SUkYy1lRqffGnCPtZanwM+gQrqwGh5GEOoz0m1Sg==', 'fred@bloggs.com'
 
 NB: The `?` symbols are placeholders, the actual values will be quoted according to your database rules, and passed in.
 
-As the `id` column was defined as being `is_auto_increment` we haven't
-supplied that value at all. the database will fill it in, and the
-`insert` call will fetch the value and store it in our `$fred`
+As the `id` column is defined as being `is_auto_increment` we haven't
+supplied that value at all. The database will fill it in, and the
+`insert` call will fetch the value and store it in our `$fred` Row
 object. It will also do this for other database-supplied fields if
 defined as `retrieve_on_insert` in `add_columns`.
 
 ### Your turn, create a User and verify with a test
 
-Now that's all hopefully made sense, it's time for a bit of Test-Driven-Development.
+Now that's all hopefully made sense, it's time for a bit more Test-Driven-Development.
 
 This is a short Perl test that will check that a user, and only one user, with the `email` of **alice@bloggs.com** exists in the database. You can type it up into a file named **check-alice-exists.t** in t/ directory, or unpack it from the provided tarball.
 
@@ -127,14 +159,14 @@ Note, there are tests for a couple of other things too, happy coding!
     is($users_rs->count, 1, 'Found exactly one alice user');
 
     my $alice = $users_rs->next();
-    is($alice->id, 1, 'Magically discovered Alice's PK value');
+    is($alice->id, 1, "Magically discovered Alice's PK value");
     is($alice->username, 'alice', 'Alice has boring ole username of "alice"');
-    ok($alice->password->match('aliceandfred'), "Guessed Alice's password, woot!');
+    ok($alice->password->match('aliceandfred'), "Guessed Alice's password, woot!");
     like($alice->realname, qr/^Alice/, 'Yup, Alice is named Alice');
     
     done_testing;
 
-Finished? If you get stuck, solutions are included with the downloadable code, and in the Appendix.
+Finished? If you get stuck, solutions are included with the downloadable code, in the exercises section.
 
 ## Importing multiple rows at once
 
@@ -154,15 +186,18 @@ Here's an example that will add Fred and Alice at the same time.
 
     $users_rs->populate([
       [qw/realname username password email/],
-      ['Fred Bloggs', 'fred', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'), 'fred@bloggs.com'],
-      ['Alice Bloggs, 'alice', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred'), 'alice@bloggs.com']
+      ['Fred Bloggs', 'fred', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass')->as_rfc2307, 'fred@bloggs.com'],
+      ['Alice Bloggs, 'alice', Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred')->as_rfc2307, 'alice@bloggs.com']
     ]);
 
-Populate is most useful in _void context_, that is without requesting
-a return value from the call. In this case it will use DBI's
-`execute_array` method to insert multiple sets of row data. In list
-context `populate` will call `create` repeatedly and return a list of
-**Row** objects.
+Note how we need to call `as_rfc2307` on the Authen::Passphrase object
+in order to fetch the string representation to store in the password
+field. This is because when the `populate` method is called in **void
+context**[^voidcontext] it sends the data straight to the database, and 
+bypasses any components or overridden methods in your Result class. In void context the creation of rows is also faster[^executearray]
+
+`populate` can also be called in list context, it will then just call
+the `create` method repeatedly list of **Row** objects.
 
 This code will do the same work as the above example, but return
 DBIx::Class **Row** objects for later use:
@@ -188,10 +223,10 @@ DBIx::Class **Row** objects for later use:
 ## Your turn, import some users from a CSV file and verify
 
 The downloadable content for this chapter contains a file named
-_multiple-users.csv_ containing several user's data in
+_t/data/multiple-users.csv_ containing several user's data in
 comma-separated-values format. To read the lines from the file you can
 parse it using a module like
-[Text::xSV](http://metacpan.org/module/Text::xSV). The test file can also be found in the Appendix if you don't have the downloadable content.
+[Text::xSV](http://metacpan.org/module/Text::xSV). 
 
 Data file:
 
@@ -199,7 +234,8 @@ Data file:
     "Janet Bloggs", "janet", "fredsdaughter", "janet@bloggs.com"
     "Dan Bloggs", "dan", "sillypassword", "dan@bloggs.com"
 
-Add your import code to this Perl test, then run to see how you did:
+Add your import code to this Perl test, then run to see how you did
+(you can find the downloadable copy in _t/import-users.t_):
 
     #!/usr/bin/env perl
     use strict;
@@ -236,7 +272,7 @@ Add your import code to this Perl test, then run to see how you did:
     ok($dan, 'Found Dan');
     ok($dan->password->match('sillypassword'), "Got Dan's password right");
 
-Lookup the solution if you get stuck.
+Look up the solution in the exercises directory if you get stuck.
 
 ## Finding and changing a User's data later on
 
@@ -268,11 +304,11 @@ Enough chatter, here's some code:
     
 We explcitly name the `username_idx` unique constraint to help `find`
 create the correct query. It will return either a DBIx::Class::Row
-object, or undefined to indicate that no matching row was found. The
-Row object has accessor methods matching the column names provided in
-the **Result Class**, which will return the values stored in the
-database. If an InflateColumn component has been used, then an object
-representing the data will be returned instead.
+object, or `undef` to indicate that no matching row was found. The Row
+object we get back has accessor methods matching the column names
+provided in the **Result Class**, which will return the values that
+were fetched from the database. If an InflateColumn component has been
+used, then an object representing the data will be returned instead.
 
 Now that we've verified that fred is who he says he is, we can allow
 him to update his email address or change his password, and store
@@ -303,8 +339,6 @@ This example uses a small console based program to illustrate. (Performing this 
     ## Update changed email address in database:
     $fred->email($new_email);
     $fred->update();
-
-## <Can't think of a useful exercise here>
 
 ## Create a Post entry for the user
 
@@ -774,3 +808,5 @@ This test can be found in the file **advanced_methods.t**.
 [^new_result]: new_result creates a Row object that stores the data given, but does not enter it into the database. The `in_storage` method can be used to check the status of a Row object (true == is in the database).
 [^DBIC_TRACE]: An environment variable to turn on debugging info which dumps the SQL queries made. Use `set DBIC_TRACE=1` on Windows or csh, and `export DBIC_TRACE=` on bash-like shells.
 [^dsn]: See the DBI documentation for more on how these work, essentially they consist of `dbi:` followed by the name of the DBD (database driver) you are using, eg `SQLite:`, followed by a custom description of the actual database, depending on driver used.
+[^voidcontext]: Calling a function or method without requesting the return value.
+[^executearray]: The populate method uses the DBI `execute_array` method in void context.
