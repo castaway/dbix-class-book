@@ -1,0 +1,18 @@
+<posts>
+  <post>
+    <title>In which Alice writes a blog post</title>
+    <post>This being a new blog, Alice introduces herself and her plan for the blog.
+
+Alice likes to write in the third person, for some reason.
+    </post>
+    <created_date>2012-08-01 10:00:00</created_date>
+  </post>
+  <post>
+    <title>Alice's second blog post</title>
+    <post>Alice ponders over life the universe and everything.
+
+At length...
+    </post>
+    <created_date>2012-08-01 10:00:00</created_date>
+  </post>
+</posts>

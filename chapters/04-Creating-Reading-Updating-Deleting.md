@@ -314,7 +314,7 @@ Now that we've verified that fred is who he says he is, we can allow
 him to update his email address or change his password, and store
 those changes.
 
-This example uses a small console based program to illustrate. (Performing this behavior on DBIx::Class objects demonstrates how you can share a database layer between a command-line program and a web application, for example.)
+This example uses a small console based program to illustrate. (Performing this behaviour on DBIx::Class objects demonstrates how you can share a database layer between a command-line program and a web application, for example.)
 
     my $username = prompt('x', 'Your username', 'Enter your username', '');
 
@@ -343,34 +343,44 @@ This example uses a small console based program to illustrate. (Performing this 
 ## Create a Post entry for the user
 
 We've entered some single unrelated rows into the database, now we'll
-look at how the relations work. In DBIx::Class *related* data means
-data stored across multiple tables which is related in some way.
+look at how to use the relations. In DBIx::Class *related* data means
+data stored across multiple tables which is related in some way. For
+example the Post table contains blog post entries which are related to
+their authors.
 
-[%# yes we know this is at odds to how "real" relations in RDBMS' are described. %]
+Note that the in more formal definitions of Relational Databases,
+"relation" means a set of related data in one table. We apologise for
+any confusion.
 
-The `User` class we defined a `has_many` relationship to the `Post`
+In the `User` class we defined a `has_many` relationship to the `Post`
 class, indicating that a user can create multiple posts. In the
-database the `user_id` field stores the id of the Post-owning user
-for each Post row.
+database the `user_id` field stores the `id` value of the Post-owning
+user for each Post row.
 
-Once we have a Row object representing a user, we can create related
-Post entries without having to spell out the relationship:
+Now that we have a Row object representing a user, we can create a
+Post entry without having to spell out the relationship:
 
     $fred->create_related('posts', {
         title => 'My first post!',
         post => 'A very short post',
+        created_date => DateTime->now(),
     });
 
 This will automatically pick up the `id` value from the `$fred`
 object and insert it into the `user_id` column in the Posts
 table. The `$fred` object must be a User row that exists in the
 database.
+
+Note how the `created_date` value can be supplied using a DateTime
+object, the appropriately formatted datetime value for your backend
+database system will be inserted into the row.
     
 In true perlish TIMTOWTDI spirit, this can also be written as:
 
     $fred->posts->create({
         title => 'My first post!',
         post => 'A very short post',
+        created_date => DateTime->now(),
     });
 
 The `posts` method is created by our `has_many` relation. It will
@@ -385,10 +395,59 @@ based on XML (as the CSV format doesn't get along well with the
 newlines inside her text). Write some code to import the posts from the
 example XML.
 
-This test script includes the code to parse the XML file into a Perl
-data structure.
+The XML data for this exercise can be found in the file
+_t/data/multiple-posts.xml_. You can find the skeleton code in the
+file _t/import-posts.t_.
 
-  ## TODO
+This test script includes the code to parse the XML file into a Perl
+data structure, so you just need to add the code to insert the posts
+into the database.
+
+To run the test you will need to install the XML::Simple[^xmlsimple] module.
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use XML::Simple;
+    use Authen::Passphrase::SaltedDigest;
+    
+    use Test::More;
+    use_ok('MyBlog::Schema');
+
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+
+    my $alice = $schema->resultset('Uesr')->create(
+    {
+      realname => 'Alice Bloggs, 
+      username => 'alice', 
+      password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'aliceandfred'), 
+      email    => 'alice@bloggs.com',
+    });
+    
+    my $xml_posts = XMLIn('t/data/multiple-posts.xml');
+    
+    foreach my $post_xml (@$xml_posts) {
+      ## Your code goes here!
+
+
+    }
+
+    ## Tests:
+    
+    is($schema->resultset('Post')->count, 2, 'Two posts exist in the database'));
+    my @posts = $alice->posts->all();
+    foreach my $post (@posts) {
+      ok($post->title eq 'In which Alice writes a blog post' ||
+         $post->title eq "Alice's second blog post",
+         'Got correct post title');
+      ok($post->post =~ /^This being a new blog/ ||
+         $post->post =~ /^Alice ponders over life/,
+         'Got correct post content');
+    }
+
 
 ## Update many rows at once, getting rid of rude names
 
@@ -810,3 +869,4 @@ This test can be found in the file **advanced_methods.t**.
 [^dsn]: See the DBI documentation for more on how these work, essentially they consist of `dbi:` followed by the name of the DBD (database driver) you are using, eg `SQLite:`, followed by a custom description of the actual database, depending on driver used.
 [^voidcontext]: Calling a function or method without requesting the return value.
 [^executearray]: The populate method uses the DBI `execute_array` method in void context.
+[^xmlsimple]: [](http://metacpan.org/module/XML::Simple)
