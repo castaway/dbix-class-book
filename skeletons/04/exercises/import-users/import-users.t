@@ -21,6 +21,16 @@ while ($csv->get_row()) {
     
     ## Your code goes here!
 
+    $users_rs->create({
+        realname => $row->{realname},
+        username => $row->{username},
+        email    => $row->{email},
+        password => Authen::Passphrase::SaltedDigest->new(
+            algorithm => "SHA-1", 
+            salt_random => 20, 
+            passphrase=> $row->{password},
+            ),
+    });
 
     ## End your code
 }

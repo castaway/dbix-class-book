@@ -263,6 +263,7 @@ Add your import code to this Perl test, then run to see how you did
     $csv->load_file('t/data/multiple-users.csv');
     $csv->read_header();
     
+    my $users_rs = $schema->resultset('User');
     while ($csv->get_row()) {
       my $row = $csv->extract_hash();
 
@@ -430,7 +431,8 @@ To run the test you will need to install the XML::Simple[^xmlsimple] module.
     
     use XML::Simple;
     use Authen::Passphrase::SaltedDigest;
-    
+    use DateTime::Format::Strptime;
+ 
     use Test::More;
     use_ok('MyBlog::Schema');
 
@@ -446,17 +448,20 @@ To run the test you will need to install the XML::Simple[^xmlsimple] module.
       email    => 'alice@bloggs.com',
     });
     
+    my $dt_formatter = DateTime::Format::Strptime->new( pattern => '%F %T' );
     my $xml_posts = XMLIn('t/data/multiple-posts.xml');
     
     foreach my $post_xml (@$xml_posts) {
+      my $postdate = $dt_formatter->parse_datetime($post_xml->{created_date});
+
       ## Your code goes here!
 
-
+      ## End your code
     }
 
     ## Tests:
     
-    is($schema->resultset('Post')->count, 2, 'Two posts exist in the database'));
+    is($schema->resultset('Post')->count, 2, 'Two posts exist in the database');
     my @posts = $alice->posts->all();
     foreach my $post (@posts) {
       ok($post->title eq 'In which Alice writes a blog post' ||
@@ -647,7 +652,8 @@ into the database, if it has not yet been).
 
 We can already `find` single rows based on their unique values, and
 `create` new rows. If we try to create a new row using data that
-already matches unique values in the database, we will get an error:
+already matches unique values in the database, we will get an error
+thrown by the database:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
@@ -714,8 +720,27 @@ Notice that `$fred` and `$fred2` have the same primary key (id); they
 represent the same row. This technique only works when you are
 passing in values for the unique or primary keys.
 
-NOTE: Using find_or_create can produce race conditions, as it does two
-separate SQL commands.
+`find_or_create` can produce race conditions, as it does a separate
+`SELECT` statement followed by an `INSERT` statement, if it needs to
+create the user. To work around this, start a transaction by using the
+`txn_do` method on the Schema object:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+    $schema->txn_do(sub {
+      my $fred2 = $users_rs->find_or_create({ 
+        realname => 'Fred Bloggs',
+        username => 'fred',  ## oops, username already exists.
+        password => Authen::Passphrase::SaltedDigest->new(
+           algorithm => "SHA-1", 
+           salt_random => 20,
+           passphrase => 'mypass',
+        ),
+        email => 'fred@bloggs.com',
+      });
+    });
+
+For more on transactions, see
+[](chapter_05-preventing-race-conditions-with-transactions-and-locking).
 
 To discover whether your returned Row object is a new one or an
 existing one, use `find_or_new` instead. This will return a Row object
@@ -771,12 +796,13 @@ With this much shorter version:
       });
     }
 
-Even though we provide all the data to update_or_create, the `update`
+Even though we provide all the data to `update_or_create`, the `update`
 portion will only sent an update statement to the database for the
 columns that have changed.
 
-This method will issue multiple statements, so it is subject to
-possible race conditions. Run this inside a transaction, like this:
+As with `find_or_create`, this method will issue multiple statements,
+so it is subject to possible race conditions. Run it inside a
+transaction to prevent collisions:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
     my $users_rs = $schema->resultset('User');
@@ -796,7 +822,7 @@ possible race conditions. Run this inside a transaction, like this:
       
 See [](chapter_05-preventing-race-conditions-with-transactions-and-locking) for more on transactions.
 
-## Trying out the advanced CRUD methods
+## Your turn, trying out the advanced CRUD methods
 
 Time to have a go yourself. We'll do a slightly more complicated test,
 to ensure that your code actually uses the new methods, I'm going to
@@ -808,7 +834,7 @@ we'll add user **alicebloggs** checking that she doesn't exist
 already, and finally we'll update **fredbloggs** and change his
 password to **freddy**.
 
-This test can be found in the file **advanced_methods.t**.
+This test can be found in the file **advanced-methods.t**.
 
     #!/usr/bin/env perl
     use strict;
@@ -901,7 +927,10 @@ This test can be found in the file **advanced_methods.t**.
     }
     
     done_testing;
-    
+
+If you get stuck there's a working copy in the _exercises/_ directory
+in the download for this chapter.
+
 [^sqlite]: [](http://metacpan.org/module/DBD::SQLite)
 [^storage]: Storage backend, only available one is DBI, []((http://metacpan.org/module/DBIx::Class::Storage)
 [^dbi]: [](http://metacpan.org/dist/DBI)

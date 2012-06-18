@@ -4,6 +4,7 @@ use warnings;
 
 use XML::Simple;
 use Authen::Passphrase::SaltedDigest;
+use DateTime::Format::Strptime;
 
 use Test::More;
 use_ok('MyBlog::Schema');
@@ -20,11 +21,21 @@ my $alice = $schema->resultset('Uesr')->create(
         email    => 'alice@bloggs.com',
     });
 
+my $dt_formatter = DateTime::Format::Strptime->new( pattern => '%F %T' );
+    
 my $xml_posts = XMLIn('t/data/multiple-posts.xml');
 
 foreach my $post_xml (@$xml_posts) {
+    my $postdate = $dt_formatter->parse_datetime($post_xml->{created_date});
+
     ## Your code goes here!
 
+    $alice->posts->create({ title => $post_xml->{title},
+                            post => $post_xml->{post},
+                            created_date => $postdate,
+                          });
+    
+    ## End your code
 }
 
 ## Tests:
