@@ -135,9 +135,18 @@ defined as `retrieve_on_insert` in `add_columns`.
 
 ### Your turn, create a User and verify with a test
 
-Now that's all hopefully made sense, it's time for a bit more Test-Driven-Development.
+Now that's all hopefully made sense, it's time for a bit more
+Test-Driven-Development.
 
-This is a short Perl test that will check that a user, and only one user, with the `email` of **alice@bloggs.com** exists in the database. You can type it up into a file named **check-alice-exists.t** in t/ directory, or unpack it from the provided tarball.
+This is a short Perl test that will check that a user, and only one
+user, with the `email` of **alice@bloggs.com** exists in the
+database. You can type it up into a file named
+**check-alice-exists.t** in t/ directory, or unpack it from the
+provided tarball. 
+
+Add code in the provided space (after "Your code goes here!" to create
+the alice user in the database. Examine the tests that follow to see
+what the rest of the user should look like.
 
 Note, there are tests for a couple of other things too, happy coding!
 
@@ -314,7 +323,13 @@ Now that we've verified that fred is who he says he is, we can allow
 him to update his email address or change his password, and store
 those changes.
 
-This example uses a small console based program to illustrate. (Performing this behaviour on DBIx::Class objects demonstrates how you can share a database layer between a command-line program and a web application, for example.)
+This example uses a small console based program to
+illustrate. (Performing this behaviour on DBIx::Class objects
+demonstrates how you can share a database layer between a command-line
+program and a web application, for example.)
+
+To run this example, you will need to install
+Term::Prompt[^termprompt] from CPAN.
 
     my $username = prompt('x', 'Your username', 'Enter your username', '');
 
@@ -385,7 +400,11 @@ In true perlish TIMTOWTDI spirit, this can also be written as:
 
 The `posts` method is created by our `has_many` relation. It will
 return a **DBIx::Class::ResultSet** object with a condition for all
-the one or more related Post entries.
+the one or more related Post entries. 
+
+To create an un-inserted Post entry that we can pass around / edit
+before putting into the database, we can of course also use
+`new_result` here instead of `create`.
 
 ## Your turn, insert a set of posts from an offline edit
 
@@ -511,12 +530,18 @@ an object you have represents actual data, use the `in_storage`
 method, the result will be `0` (false) when the row data is not yet or
 no longer in the database, and `1` (true) if it is.
 
-Your database will automatically remove any rows related to this one
-using foreign keys, if set up correctly. This means all posts created
-by the user *fred2* will be deleted. If the database does not remove
-them, DBIx::Class will make an attempt itself, using the `has_many`
-relation which is set up to cascade deletes by default. To change this
-behaviour, set up the relationship with `cascade_delete` set to 0:
+Your database should automatically remove any rows related to this one
+using foreign keys, if set up using foreign key constraints. This
+means all posts created by the user *fred2* will be
+deleted. DBIx::Class will by default, also make an attempt to remove
+related rows, **after** the original row is removed. This will throw
+errors if your database has constraints/foreign keys set up to ensure
+data integrity, but the data has not been removed for some reason.
+
+Related rows are removed according to the `has_many` relationships set
+up in the Result class. The attempt to delete related rows can be
+turned off by setting the `cascade_delete` attribute on the
+relationship to a false value:
 
     32. __PACKAGE__->has_many('posts', 
                               'MyBlog::Schema::Result::Post', 
@@ -614,9 +639,9 @@ You can also do this:
 
 Related objects are added using the relation name, and using a hashref
 (for foreign key relationships) or an arrayref of hashrefs (the other
-side, has_many, has_one, might_have) to add the data. Or you can link
-to another row using the row object (which will be inserted into the
-database, if it has not yet been).
+side, `has_many`, `has_one`, and `might_have`) to add the data. Or you
+can link to another row using the row object (which will be inserted
+into the database, if it has not yet been).
     
 * find_or_create and find_or_new
 
@@ -887,3 +912,4 @@ This test can be found in the file **advanced_methods.t**.
 [^voidcontext]: Calling a function or method without requesting the return value.
 [^executearray]: The populate method uses the DBI `execute_array` method in void context.
 [^xmlsimple]: [](http://metacpan.org/module/XML::Simple)
+[^termprompt]: [](http://metacpan.org/module/Term::Prompt)
