@@ -16,11 +16,10 @@ Pre-requisites
 You should understand basic DBIx::Class use as shown in Chapter 4. We
 will be giving code examples and tests using Test::More so you should
 be familiar with Perl unit testing. The database we are using is
-provided as an SQL file you can import into an
-[SQLite database](http://search.cpan.org/dist/DBD-SQLite) to get
-started.
+provided as an SQL file you can import into an SQLite
+database[^sqlite] to get started.
 
-[Download code](http://dbix-class.org/book/code/chapter05.zip)
+Download the skeleton code for this chapter: [](http://dbix-class.org/book/code/chapter05.zip)
 
 Introduction
 ------------
@@ -31,10 +30,10 @@ database to prefilter, sort, slice and dice the data for us, as this
 is more efficient than fetching the data a piece at a time and doing
 the work in Perl. DBIx::Class allows you to use Perl data structures
 and methods to describe the intended query, and then optimises the
-result into SQL. The main method we will need is `search`, with
+result into SQL. The main method we will be using is `search`, with
 various conditions and attributes.
 
-## Recap, simple search queries
+## Introduction to search conditions and attributes
 
 In Chapter 4 we searched for a set of users with rude or unwanted
 words as their realnames, in order to remove them from the
@@ -43,38 +42,89 @@ the `-like` comparison operator.
 
 `LIKE` is an SQL keyword used to compare data against simple wildcard
 matching. `%` matches any number of characters, `_` matches a single
-character. While LIKE is defined as being case-insensitive in the SQL
-standard, it is not implemented as such in all databases (PostgreSQL
-for example, provides the LIKE and ILIKE keywords).
+character. Note that while LIKE is defined as being case-insensitive
+in the SQL standard, it is not implemented as such in all databases
+(PostgreSQL for example, provides the LIKE and ILIKE keywords).
 
 The two arguments to `search` are a set of conditions and a set of
 attributes. The conditions supply the filters to apply to the data,
-the attributes add grouping, sorting and joining and more.
+the attributes add grouping, sorting and joining and more. The
+conditions are turned into SQL using a module called
+SQL::Abstract[^sqlabstract]
 
-The other non-obvious subtlety here is that an arrayref in the value of
-a condition hashref produces a set of ORed conditions, whereas the
-hashref layer produces ANDed conditions.  This functionality is provided by the [SQL::Abstract module](http://metacpan.org/dist/SQL-Abstract).
+The following are some tips on creating SQL conditions using the
+SQL::Abstract syntax. Remember that in the DBIC_TRACE output, the '?'
+characters represent bind parameters, the actual values are shown
+after the query, and will be escaped before being used in the SQL.
 
-    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
-    my $users_rs = $schema->resultset('User');
+* A hashref produces a set of AND'd conditions:
 
-    my @badwords = ('john', 'joe', 'joseph');
+    Perl:
+    search({ username => 'fredbloggs', email => 'fred@bloggs.com' });
+  
+    SQL:
+    ... WHERE username = ? AND email = ? : 'fredbloggs', 'fred@bloggs.com'
+
+* An arrayref produces a set of OR'd conditions:
+
+    Perl:
+    search([ { username => 'fredbloggs' }, { email => 'fred@bloggs.com' } ]);
+    
+    SQL:
+    ... WHERE username = ? OR email = ? : 'fredbloggs', 'fred@bloggs.com'
+
+* We can mix and match these:
+
+    Perl:
+    search([ { username => 'fredbloggs', realname => 'Fred Bloggs' }, { email => 'fred@bloggs.com' } ]);
+    
+    SQL:
+    ... WHERE (username = ? AND realname = ?) OR email = ? : 'fredbloggs', 'Fred Bloggs', 'fred@bloggs.com'
+
+* To OR a set of alternate values for one column, we can pass an arrayref as the hashref value:
+
+    Perl:
+    search({ username => [ 'fredbloggs', 'alicebloggs', 'joebloggs' ] });
+    
+    SQL:
+    ... WHERE username = ? OR username = ? OR username = ? : 'fredbloggs', 'alicebloggs', 'joebloggs'
+
+* To produce SQL-keywords, we generally precede them with an '-' symbol, so to get IN:
+
+    Perl:
+    search({ username => { '-in' => [ 'fredbloggs', 'alicebloggs', 'joebloggs' ] } });
+
+    SQL:
+    ... WHERE username IN ( 'fredbloggs', 'alicebloggs', 'joebloggs' )
+    
+* Or BETWEEN:
+
+    Perl:
+    search({ created_date => { '-between' => ['2012-01-01', '2012-12-31'] } });
+    
+    SQL:
+    ... WHERE created_date BETWEEN ? AND ? : '2012-01-01', '2012-12-31'
+
+* So to recap from the previous chapter:    
+
+    my @badwords = ('john', 'joe', 'joseph', 'jess', 'james');
     my $badusers_rs = $users_rs->search({
       realname => [ map { { 'like' => "%$_%"} } @badwords ],
     });
 
-This query is sent to the database as this SQL:
+Creates a list of OR'd LIKE queries:
 
     SELECT me.id, me.realname, me.username, me.password, me.email
     FROM users
-    WHERE me.realname LIKE '%john%' OR me.realname LIKE '%joe%' OR me.realname LIKE '%joseph%'
+    WHERE me.realname LIKE '?' 
+      OR me.realname LIKE '?' 
+      OR me.realname LIKE '?'
+      OR me.realname LIKE '?
+      OR me.realname LILE '?'
+    : '%john%', '%joe%', '%joseph%', '%jess%', '%james%'
     
-We'll get the results by grabbing a Row object at a time from the
-ResultSet using the `next` method.
-
-    while(my $user = $users_rs->next) {
-      print $user->realname;
-    }
+The possible contents of the attributes argument are described in the
+following sections.
 
 ## Choosing data to fetch
 
@@ -1194,3 +1244,5 @@ out of scope. Otherwise it can be used to issue a `commit` statement.
  
 Transactions may be also be nested.
 
+[^sqlite]: [](http://metacpan.org/module/DBD::SQLite)
+[^sqlabstract]:Turn Perl data structures into SQL statements, [](http://metacpan.org/dist/SQL-Abstract)

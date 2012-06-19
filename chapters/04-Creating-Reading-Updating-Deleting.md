@@ -121,7 +121,7 @@ instead and setting the values separately:
 
 Note how all the columns described in the `User` class using `add_columns` appear on the **Row object** as accessor methods.
 
-To see what's going on, we can set the shell environment variable [^DBIC_TRACE] to a true value, and DBIx::Class will display the SQL statement for either of these code samples on STDOUT:
+To see what's going on, we can set the shell environment variable DBIC_TRACE[^DBIC_TRACE] to a true value, and DBIx::Class will display the SQL statement for either of these code samples on STDOUT:
 
     INSERT INTO users (realname, username, password, email) VALUES (?, ?, ?, ?): 'Fred Bloggs', 'fred', '{SSHA}GGccJQItu3l8a4SUkYy1lRqffGnCPtZanwM+gQrqwGh5GEOoz0m1Sg==', 'fred@bloggs.com'
 
@@ -513,6 +513,9 @@ Here's the SQL this outputs, to show you what is going on:
     
 Note that the "%" character is a wildcard in the LIKE operator, and
 matches any number of unspecified characters.
+
+See [](chapter_05-introduction-to-search-conditions-and-attributes) for more
+details on search conditions.
 
 ## Deleting a row or rows, and cascading
 
