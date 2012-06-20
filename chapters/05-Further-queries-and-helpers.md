@@ -13,11 +13,13 @@ to do transactions and locking.
 Pre-requisites
 --------------
 
-You should understand basic DBIx::Class use as shown in Chapter 4. We
-will be giving code examples and tests using Test::More so you should
-be familiar with Perl unit testing. The database we are using is
-provided as an SQL file you can import into an SQLite
-database[^sqlite] to get started.
+You should understand basic DBIx::Class use as shown in Chapter
+4. While the SQL used in this chapter is explained as we go, it will
+be helpful if you already know how to use the keywords `JOIN`, `GROUP
+BY`, `ORDER BY` and so on. We will be giving code examples and tests
+using Test::More so you should be familiar with Perl unit testing. The
+database we are using is provided as an SQL file you can import into
+an SQLite database[^sqlite] to get started.
 
 Download the skeleton code for this chapter: [](http://dbix-class.org/book/code/chapter05.zip)
 
@@ -33,7 +35,7 @@ and methods to describe the intended query, and then optimises the
 result into SQL. The main method we will be using is `search`, with
 various conditions and attributes.
 
-## Introduction to search conditions and attributes
+## Introducing search conditions and attributes
 
 In Chapter 4 we searched for a set of users with rude or unwanted
 words as their realnames, in order to remove them from the
@@ -123,16 +125,17 @@ Creates a list of OR'd LIKE queries:
       OR me.realname LILE '?'
     : '%john%', '%joe%', '%joseph%', '%jess%', '%james%'
     
-The possible contents of the attributes argument are described in the
-following sections.
+We can also call functions, concatenate values and so on. The rest of
+this chapter will demonstrate more search conditions, and the possible
+contents of the second argument to `search`, for attributes.
 
 ## Choosing data to fetch
 
-A default `search` will fetch all the columns defined in the
+A default `search` call will fetch all the columns defined in the
 ResultSource that we're using for the search. Note that the
 ResultSource itself does not need to define all the columns in a
 database table. If you don't need to use some of them in your
-application at all, you can leave them out of the Schema.
+application at all, you can leave them out of the class definition.
 
 You may want to reduce the set of columns fetched from the database,
 useful if one of them is a large blob type column and you don't always
@@ -148,6 +151,10 @@ To fetch the user data without the password column:
       columns     => [ qw/me.id me.realname me.username me.email/ ],
     });
 
+The SQL created by DBIx::Class will always use a **table
+alias**[^tablealias] to identify the tables in the query. The table
+the search is based upon is always aliased as `me`.
+
 To better express the "all but the password column" we can fetch the
 list of defined columns from the ResultSource, and subtract the
 column:
@@ -160,14 +167,20 @@ column:
       columns     => [ grep { $_ ne 'password' } ($users_rs->resultsource->columns) ],
     });
     
-To get the SQL:
+The SQL we get for both of these is the same:
 
     SELECT me.id, me.realname, me.username, me.email
     FROM users me
 
+Note, if this is a query you are likely to repeat, or you just want to
+keep your code tidier, you can store it as a predefined method on the
+ResultSet object. See
+[](chapter_06-methods-on-row-and-resultset-objects) for how to do
+this.
+
 The SQL `SELECT` clause can contain many other things, for example
 functions such as `length`. To output a function and its arguments,
-use a hashref in the `columns` attribute. You can also add new columns
+use a hashref in the `columns` attribute. You can also add more columns
 to the default set using the `+columns` attribute.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
@@ -175,18 +188,18 @@ to the default set using the `+columns` attribute.
     my $users_rs = $schema->resultset('User');
     my $users_plus_emaillen_rs = $users_rs->search({
     }, {
-      '+columns'     => [ { 'emaillen' => { length => 'email' } }],
+      '+columns'     => [ { 'emaillen' => { length => 'me.email' } }],
     });
 
 Which produces the SQL:
 
-    SELECT me.id, me.realname, me.username, me.password, me.email, length(email)
+    SELECT me.id, me.realname, me.username, me.password, me.email, length(me.email)
     FROM users me
 
-The outer level of hashref has the new internal column name as its
-key. This gives you a way to access to resulting value. Note that
-we'll need to use the `get_column` method to fetch the data as it does
-not create a new accessor method on the resulting Row object.
+The outer level of the column hashref has the new internal column name
+as its key. This gives you a way to access to resulting value. Note
+that we'll need to use the `get_column` method to fetch the data as it
+does not create a new accessor method on the resulting Row object.
 
     while (my $user = $users_plus_emaillen_rs->next) {
       print "User: ", $user->username, " has email length ", $user->get_column('emaillen'), " \n";
@@ -199,7 +212,69 @@ sets of related data in the same single query.
 
 ## Your turn, fetch posts with no "post" column data
 
-  ## TODO
+This is a straight-forward practice of the techniques just
+described. Write a piece of code that fetches all the posts entries,
+but just the `title` and `created_date` columns, not the actual
+`post` content.
+
+You can find the skeleton of this test in the downloadable code, in
+the _t/no-post-content.t_ file.
+
+    #!/usr/bin/env perl
+    use strict;
+    use warnings;
+    
+    use Test::More;
+    use_ok('MyBlog::Schema');
+
+    unlink 't/var/myblog.db';
+    my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
+    $schema->deploy();
+
+    ## insert some test data
+    my $users_rs = $schema->resultset('User');
+    
+    $users_rs->create({
+      realname => 'John Smith',
+      username => 'johnsmith',
+      password => Authen::Passphrase::SaltedDigest->new(
+         algorithm => "SHA-1", 
+         salt_random => 20,
+         passphrase => 'johnspass',
+      ),
+      email => 'john.smith@example.com',
+      
+      posts => [
+          {
+            title => "John's first post",
+            post  => 'Tap, tap, is this thing on?',
+            created_date => DateTime->now,
+          },
+          {
+            title => "John's second post",
+            post => "Anybody out there?",
+            created_date => DateTime->now,
+          }
+      ],
+    });    
+    
+    my $posts_no_content_rs;
+    ## Your code goes here!
+    
+    ## End your code
+    
+    ## Tests:   
+    is($posts_no_content_rs->count, 2, 'Found both posts');
+
+    my $first_post = $posts_no_content_rs->next();
+    my %post_data = $first_post->get_columns;
+    is(scalar keys %post_data, 2, "Got two columns in the first post");
+    ok($first_post->title, 'Got a title on the first post');
+    ok($first_post->created_date, "Got a created_date on the first post");
+    ok(!$first_post->post, 'No post content on first post');
+    
+    done_testing;
+
 
 ## Ordering and Reducing
 
@@ -1246,3 +1321,4 @@ Transactions may be also be nested.
 
 [^sqlite]: [](http://metacpan.org/module/DBD::SQLite)
 [^sqlabstract]:Turn Perl data structures into SQL statements, [](http://metacpan.org/dist/SQL-Abstract)
+[^tablealias]: An alternate name for a table, used in SQL to shorten or differentiate table names. In use it is placed after the name of the table, for example: `FROM users_table users` or `JOIN mylongpoststable posts` in which "users" and "posts" are the aliases.

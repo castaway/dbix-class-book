@@ -514,7 +514,7 @@ Here's the SQL this outputs, to show you what is going on:
 Note that the "%" character is a wildcard in the LIKE operator, and
 matches any number of unspecified characters.
 
-See [](chapter_05-introduction-to-search-conditions-and-attributes) for more
+See [](chapter_05-introducing-search-conditions-and-attributes) for more
 details on search conditions.
 
 ## Deleting a row or rows, and cascading
@@ -609,10 +609,12 @@ For example, you can do this:
           {
             title => "John's first post",
             post  => 'Tap, tap, is this thing on?',
+            created_date => DateTime->now,
           },
           {
             title => "John's second post",
             post => "Anybody out there?",
+            created_date => DateTime->now,
           }
       ],
     });
