@@ -570,10 +570,10 @@ such as MySQL, will not warn by default.
 
 The `sum`, `avg`, `min`, and `max` aggregate functions work just like
 the `count` function. Use this information to create a query that will
-return the earliest (minimum `created_date`) of each user in the
+return the earliest post (minimum `created_date`) of each user in the
 database.
 
-This test can be found in the file **earliest_posts.t**.
+This test can be found in the file _t/earliest-posts.t_.
 
     #!/usr/bin/env perl
     use strict;
@@ -658,13 +658,13 @@ This test can be found in the file **earliest_posts.t**.
 
 ## Filtering data after grouping
 
-With [](chapter_05-joining-aggregating-and-grouping-on-related-data) and
-various aggregation functions we can sum or count data across groups
-of rows. If we want to filter the results again, for example to
-get only the groups whose COUNT is greater than a certain value, we
-need to use the SQL keyword `HAVING`. To differentiate, the `WHERE`
-clause applies before the grouping, and the `HAVING` clause applies
-afterwards.
+With [](chapter_05-joining-aggregating-and-grouping-on-related-data)
+and the various aggregation functions we can now sum or count data
+across groups of rows. If we want to filter the results again, for
+example to get only the groups whose COUNT is greater than a certain
+value, we need to use the SQL keyword `HAVING`. To differentiate, the
+`WHERE` clause applies before the grouping, and the `HAVING` clause
+applies afterwards.
 
 So to return all users that have at least one post:
 
