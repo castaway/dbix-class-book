@@ -276,20 +276,23 @@ the _t/no-post-content.t_ file.
     done_testing;
 
 
-## Ordering and Reducing
+## Ordering and paging
 
 The SQL language provides a number of ways to manipulate the data
 before building rows out of the results. Doing this work in the
 database instead of your Perl code is much more efficient.
 
-First we look at ordering and reducing. We can sort results based on any
-data values in the database, or manipulations of those values. The
-type of sorting we get depends on the data types in the columns. We
-can fetch all our users ordered by their usernames for display:
+First we look at ordering or sorting the results, and reducing the
+number of rows returned. We can sort results based on any data values
+in the database, or manipulations of those values. The type of sorting
+we get depends on the data types in the columns. For example, we can
+fetch all our users ordered by their usernames for display.
 
 The `order_by` attribute corresponds to the SQL keyword `ORDER BY`.
-Sorting can be done either ascending, with `-asc`, or descending
-with `-desc`.
+Sorting can be done either ascending, with `-asc`, or descending with
+`-desc`. If neither asc or desc are supplied, the database default is
+usually ascending. With no `ORDER BY` clause at all, the return order
+of the results is undefined.
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
@@ -307,12 +310,13 @@ We get the SQL:
 The results from our loop over the results are now sorted by username.
 There's no need to sort further in Perl or your templating system.
 
-Now that we have rows in a known order, we can also reduce the set of results
-to a top ten, or to a page worth of results, so that we only fetch data we'll
-actually use. There are unfortunately many different database-specific
-implementations of ways to reduce the number of rows returned by an SQL query.
-Luckily DBIx::Class abstracts these away for you, providing a single `rows`
-attribute that is converted to the correct keyword when the query is run.
+Now that we have rows in a known order, we can also reduce the set of
+results to a top ten, or to a page worth of results, so that we only
+fetch data we'll actually use. There are unfortunately many different
+database-specific implementations of ways to reduce the number of rows
+returned by an SQL query.  Luckily DBIx::Class abstracts these away
+for you, providing a single `rows` attribute that is converted to the
+correct keyword(s) when the query is run.
 
 The first 'page' of 10 usernames to display:
 
@@ -367,7 +371,7 @@ conditions with attributes, and find: 1) all the posts by the user
 **fredbloggs** in the order they were created, 2) the 2nd "page" of 2
 posts per page.
 
-This test can be found in the file **ordered_posts.t**.
+This test can be found in the file _t/ordered-posts.t_.
 
     #!/usr/bin/env perl
     use strict;
@@ -414,12 +418,12 @@ This test can be found in the file **ordered_posts.t**.
       password => Authen::Passphrase::SaltedDigest->new(algorithm => "SHA-1", salt_random => 20, passphrase=>'mypass'),
       email    => 'fred@bloggs.com',
       posts    => [
-        {  title => 'Post 4', post => 'Post 4 content' },
-        {  title => 'Post 3', post => 'Post 3 content' },
-        {  title => 'Post 2', post => 'Post 2 content' },
-        {  title => 'Post 1', post => 'Post 1 content' },
-        {  title => 'Post 5', post => 'Post 5 content' },
-        {  title => 'Post 6', post => 'Post 6 content' },
+        {  title => 'Post 4', post => 'Post 4 content', created_date => '2012-04-01 10:00:00' },
+        {  title => 'Post 3', post => 'Post 3 content', created_date => '2012-03-01 10:00:00' },
+        {  title => 'Post 2', post => 'Post 2 content', created_date => '2012-02-01 10:00:00' },
+        {  title => 'Post 1', post => 'Post 1 content', created_date => '2012-01-01 10:00:00' },
+        {  title => 'Post 5', post => 'Post 5 content', created_date => '2012-05-01 10:00:00' },
+        {  title => 'Post 6', post => 'Post 6 content', created_date => '2012-06-01 10:00:00' },
       ],
     },
     
@@ -441,9 +445,10 @@ This test can be found in the file **ordered_posts.t**.
     ## Your code goes here:
     my $ordered_page_rs;
 
+
     ## Your code end
     is($users_rs->method_calls->{search}, 2, 'Called "search" a second time');
-    is($ordered_page_rs->count, 2, 'Found 
+    is($ordered_page_rs->count, 2, 'Found page-worth of posts (2)');
     foreach my $i (3,4) {
       my $row = $ordered_rs->next;
       ok($row->isa('MyBlog::Schema::Result::Post'), 'Result isa Post object');
@@ -452,46 +457,113 @@ This test can be found in the file **ordered_posts.t**.
 
     done_testing;
 
-    
+The solution is available in the download if you need to refer to it.
 
 ## Joining, Aggregating and Grouping on related data
 
 We've seen how to create related rows, either singly or together with
 other data. Now we can look at how to query or fetch all that data
 without making multiple trips to the database. The SQL keyword `JOIN`
-can be produced using the attribute `join` and providing it a list of
+can be produced using the attribute key `join` and providing it a list of
 related resultsources to join on. The joined tables can be accessed in
 the search conditions and other clauses, using the name of the
 relationship.
 
-Here is a more concrete example. We can fetch a list of our users
-together with the number of posts that they have written.
+On its own, the `join` clause will not produce any change in the
+query, as it will be optimised away by DBIx::Class. We need to make at
+least some use of the joined table's columns. So to demonstrate it we
+also introduce the `group_by` attribute key, which produces the `GROUP
+BY` keyword in SQL.
+
+Grouping the results is a useful technique which allows us to apply
+things like mathematical functions to the content. For example we can
+group all of the posts written by each user together, and then apply
+the `COUNT` function. The result will contain the count of the set of
+rows in each group, otherwise know as the number of posts written by
+the user.
+
+Here is the concrete example. We fetch the usernames together with the
+number of posts that they have written:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
     my $users_post_count_rs = $schema->resultset('User')->search({
     }, {
-      '+columns' => [ { post_count => { count => 'posts.title' } }],
-      group_by   => [ $users_rs->resultsource->columns ],
+      'columns' => [ 'me.username', { post_count => { count => 'posts.id' } }],
+      group_by   => [ 'me.username' ],
+      join       => ['posts'],
+    });
+
+The `columns` technique is the same one we saw earlier in
+[](chapter_05-choosing-data-to-fetch), and `count` just calls the SQL
+built in aggregate count function. This only works if `group_by` is
+used so that it knows what to count against.
+
+We get the SQL:
+
+    SELECT me.username, count(posts.id)
+    FROM users me
+    LEFT JOIN posts posts ON me.id = posts.id
+    GROUP BY me.username
+
+Let's look at some results to see what is going on:
+
++------------+------------+
+| username   | post_count |
++============+============+
+| fredbloggs |      2     |
++------------+------------+
+| joebloggs  |      3     |
++------------+------------+
+
+Table: Count of posts per user
+
+So, how does that work? If we run the same query, just fetching the
+usernames and post IDs, with no counting, we can see the raw data:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_posts_rs = $schema->resultset('User')->search({
+    }, {
+      'columns' => [ 'me.username', 'posts.id' ],
       join       => ['posts'],
     });
 
 We get the SQL:
 
-    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id)
+    SELECT me.username, posts.id
     FROM users me
-    LEFT JOIN posts ON me.id = posts.id
-    GROUP BY me.id, me.realname, me.username, me.password, me.email
+    LEFT JOIN posts posts ON me.id = posts.id
 
-In order to use aggregate functions such as `count` in our SQL, we
-also need to provide a `GROUP BY` clause to tell the database what the
-count applies to. In this case we've grouped on all the `users`
-columns, so we want a count of unique posts.id values per user. The
-`group_by` attribute outputs the `GROUP BY` clause.
+The raw uncounted results:
 
-NB: The SQL standard says that GROUP BY should include all the queried
-(`SELECT`ed) columns which are not being aggregated. Some databases
-enforce this. Some, such as MySQL, do not by default.
++------------+------------+
+| username   | posts.id   |
++============+============+
+| fredbloggs |      1     |
++------------+------------+
+| fredbloggs |      3     |
++------------+------------+
+| joebloggs  |      2     |
++------------+------------+
+| joebloggs  |      4     |
++------------+------------+
+| joebloggs  |      5     |
++------------+------------+
+
+Table: Individual posts per user
+
+So the grouping is collapsing the `username` column by each set of
+usernames, and the `count` function adds up the number of rows per
+set.
+
+Note that if we want to fetch more than the `username` column from the
+users table, we need to list those columns in the `group_by` column
+list. This is part of the SQL standard for group by, to ensure that
+the results are not ambiguous. Most databases enforce this and will
+throw an error if you choose to select columns which are not in the
+grouping list, nor have an aggregate function applied to them. Some,
+such as MySQL, will not warn by default.
 
 
 ## Your turn, find the earliest post of each user
@@ -681,7 +753,7 @@ The SQL generated:
     WHERE me.user_id = 1
     LIMIT 10
 
-Or worse, we fetch a page posts from different users for our
+Or worse, we fetch a page of posts from different users for our
 frontpage, and then fetch the user details, we get a query per user:
 
     my $posts_rs = $schema->resultset('Post')->search({}, { rows => 10, page => 1 });
@@ -713,7 +785,7 @@ The SQL generated:
     FROM users me
     WHERE me.id = 1
 
-.. and so one, one for each post, even if some are written by the same
+.. and so on, one for each post, even if some are written by the same
 user. Of course we could reduce it by caching the user objects so that we
 don't refetch duplicates.
 
