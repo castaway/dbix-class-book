@@ -660,19 +660,78 @@ This test can be found in the file _t/earliest-posts.t_.
 
 With [](chapter_05-joining-aggregating-and-grouping-on-related-data)
 and the various aggregation functions we can now sum or count data
-across groups of rows. If we want to filter the results again, for
-example to get only the groups whose COUNT is greater than a certain
-value, we need to use the SQL keyword `HAVING`. To differentiate, the
-`WHERE` clause applies before the grouping, and the `HAVING` clause
-applies afterwards.
+across groups of rows. Suppose we now want to restrict the results of
+our query to only those post authors that have written at least one
+post. The way to do this that feels logical is to add to the WHERE
+clause:
 
-So to return all users that have at least one post:
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_post_count_rs = $schema->resultset('User')->search({
+      'post_count' => { '>' => 1 },
+    }, {
+      '+columns' => [ { post_count => { count => 'posts.id' } }],
+      group_by   => [ $users_rs->resultsource->columns ],
+      join       => ['posts'],
+    });
+
+Note that we're using `+columns` again, to add the count column to the
+default list from the `User` source. In order to create a legal `GROUP
+BY` clause it needs to contain all the columns in the query that are
+not being aggregated, so we use the list of `columns` from the
+ResultSource.
+
+SQL:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id)
+    FROM users me
+    LEFT JOIN posts ON me.id = posts.id
+    WHERE post_count > ?
+    GROUP BY me.id, me.realname, me.username, me.password, me.email : 1
+
+This doesn't work.
+
+It doesn't work for two reasons, firstly, the WHERE clause `post_count > 1`
+doesn't make any sense as it uses the unknown column
+`post_clause`. To name results of aggregate functions in SQL, we need
+to add an alias for it, using `AS`, like this:
+
+    my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
+
+    my $users_post_count_rs = $schema->resultset('User')->search({
+      'post_count' => { '>' => 1 },
+    }, {
+      '+columns' => [ { post_count => { count => 'posts.id' },
+                                        -as   => 'post_count',
+                      } ],
+      group_by   => [ $users_rs->resultsource->columns ],
+      join       => ['posts'],
+    });
+
+SQL:
+
+    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id) AS post_count
+    FROM users me
+    LEFT JOIN posts ON me.id = posts.id
+    WHERE post_count > 1
+    GROUP BY me.id, me.realname, me.username, me.password, me.email : 1
+
+The second reason is that the SQL clauses are run in order. The WHERE
+clause comes before the GROUP BY clause (because that's just the way
+SQL is defined, and the database will complain), and thus the grouped
+count will not yet exist when we try to filter it in the WHERE.
+
+To achieve our goal we need to use a new SQL keyword, `HAVING`. This
+clause comes after the `GROUP BY`, and thus can be used to filter the
+grouped results:
+
+So to actually return all users that have at least one post:
 
     my $schema = MyBlog::Schema->connect("dbi:mysql:dbname=myblog", "myuser", "mypassword");
 
     my $users_with_as_least_one_post_rs = $schema->resultset('User')->search({
     }, {
-      '+columns' => [ { post_count => { count => 'posts.title',
+      '+columns' => [ 'me.username', { post_count => { count => 'posts.title',
                                         -as   => 'post_count',
                       }
                     ],
@@ -681,20 +740,15 @@ So to return all users that have at least one post:
       having     => [ { 'post_count' => { '>=' => 1 } } ],
     });
 
-Note that we've added the `-as` argument to our `post_count` column.  This is
-required to output the SQL `AS` keyword, which aliases the result of a function
-call or calculation. The alias can then be used in subsequent clauses, such as
-the `HAVING` clause.
-
 We get the SQL:
 
-    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id) as post_count
+    SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id) AS post_count
     FROM users me
     LEFT JOIN posts ON me.id = posts.id
     GROUP BY me.id, me.realname, me.username, me.password, me.email
-    HAVING post_count <= 1
+    HAVING post_count <= ? : 1
 
-WARNING: If you get an error from your database here, and its Oracle
+WARNING: If you get an error from your database here, and it is an Oracle
 or MS SQL Server, then you will need to use different code. As these
 databases do not parse/run the SQL in order, the `post_count` alias is
 still unknown while parsing the `HAVING` clause. We need to repeat the
@@ -710,23 +764,27 @@ condition instead:
       having     => \[ 'count(posts.id) >= ?', [ {} => 1 ] ],
     });
 
-[%# This probably needs its own section somewhere.. ! %]
-This is how to write literal SQL chunks in DBIx::Class. While DBIC is
-quite clever, there will always be a need to support literal SQL
-pieces for database specific functionality or similar. The
-arrayref-reference contains the SQL string with `?` characters for
-placeholders, and an arrayref for each of the values.
+The `having` clause now contains a piece of literal SQL. We could
+write it without the arrayrefs and the placeholder, but its always
+preferable to use placeholders in SQL wherever possible, to avoid SQL
+injection attacks. The syntax allows for a piece of SQL, containing
+placeholders, which will be inserted literally into the clause, and
+then an arrayref for each placeholder value. The placeholder values
+contain a hashref which can be used to define the sql datatype, but
+for now we just supply an empty one, and a plain value of `1`.
 
-Which outputs:
+The whole thing is then taken as a reference, so we get a reference to
+an arrayreference, so that SQL::Abstract will know it is for literal
+SQL, and not some other construct. It's a bit ugly, but also quite exact.
+
+So for Oracle and MS SQL Server we get the SQL:
 
     SELECT me.id, me.realname, me.username, me.password, me.email, count(posts.id)
     FROM users me
     LEFT JOIN posts ON me.id = posts.id
     GROUP BY me.id, me.realname, me.username, me.password, me.email
-    HAVING count(posts.id) >= ?
+    HAVING count(posts.id) >= ? : 1
     
-Which is executed with the placeholders set to: (1)
-
 ## Fetching data from related tables
 
 Joins can also be used to fetch multiple tables worth of data in the
