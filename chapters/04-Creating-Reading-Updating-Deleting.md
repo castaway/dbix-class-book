@@ -440,7 +440,7 @@ To run the test you will need to install the XML::Simple[^xmlsimple] module.
     my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
     $schema->deploy();
 
-    my $alice = $schema->resultset('Uesr')->create(
+    my $alice = $schema->resultset('User')->create(
     {
       realname => 'Alice Bloggs', 
       username => 'alice', 
@@ -521,7 +521,7 @@ details on search conditions.
 
 If you've been reading this entire chapter you might have guessed by
 now which method we can use to delete a row, or even multiple rows,
-from the database, its `delete`.
+from the database, it's `delete`.
 
 To remove a single user from the system, find the row object and call
 the `delete` method on it:
