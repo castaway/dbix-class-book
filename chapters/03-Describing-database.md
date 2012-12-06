@@ -379,9 +379,9 @@ We'll add in a relationship to a `posts` table to demonstrate using
 these. The `posts` table will contain a column called `user_id` to
 indicate which User authored each Post entry.
 
-    32. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id');
+    33. __PACKAGE__->has_many('posts', 'MyBlog::Schema::Result::Post', 'user_id');
 
-- Line 32
+- Line 33
 
 To describe a _one to many_ relationship we call the `has_many`
 method. For this one, the `posts` table has a column named
