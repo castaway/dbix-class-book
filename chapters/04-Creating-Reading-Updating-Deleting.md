@@ -772,7 +772,7 @@ So we can replace this sort of code:
         email => 'fred@barney.com',
       });
     } else {
-      $fred_exists->update({ 
+      $fred_exists->create({ 
         realname => 'Fred Barney',
         email => 'fred@barney.com',
         username => 'fred',
