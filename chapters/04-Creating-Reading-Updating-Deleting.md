@@ -551,7 +551,7 @@ up in the Result class. The attempt to delete related rows can be
 turned off by setting the `cascade_delete` attribute on the
 relationship to a false value:
 
-    32. __PACKAGE__->has_many('posts', 
+    33. __PACKAGE__->has_many('posts', 
                               'MyBlog::Schema::Result::Post', 
                               'user_id', 
                               { cascade_delete => 0 },
