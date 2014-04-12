@@ -2,7 +2,7 @@ Files from/in /user/src/perl/progtorial/ProgTorial/web/tutorials/dbix-class/
 Format: Markdown with Pandoc extensions - 
 http://johnmacfarlane.net/pandoc/README.html#pandocs-markdown
 
-.. mention that column names need to be perl identifiers somewhere, else accessor needs setting?
+.. mention that column names need to be perl identifiers somewhere, else accessor needs setting? - DONE
 
 - in Describing databases, add a sidebar/explanatory block, listing the other valid column_info keys, maybe using pandocs DD/DT syntax?
 - after this, add a "try it out" section which has the user write a column_info block for (into) User.pm for created_on, using a datetime field, with default value CURRENT TIMESTAMP
@@ -55,4 +55,24 @@ Everywhere - change named metacpan links to notes? eg DBIx::Class::DeploymentHan
 
 ##
 Note at the beginning/intro/download section, that examples are based on unix shell scripts.. how to write for Windows?
+
+##
+skeletons/03 needs a myblog.sql with User + Post in it.
+
+##
+exception_action / error catching?
+- maybe in find_or_create which is where we mention it
+- or 03 ?
+
+28.02.2014:
+
+Reboot!
+
+Audience: Perl programmers. non-database users??
+
+* Databases / SQL primer ?
+* DBI?
+* Title: Getting started with DBIx::Class ?
+* Best Practices
+* Real intro: (see 00-Preamble.md)
 
