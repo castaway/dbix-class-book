@@ -5,8 +5,6 @@
 Chapter 1 - Introduction and general data storage
 =================================================
 
-This book will introduce you to DBIx::Class, the Perl module for dealing with your database(s).
-
 If you are already sure that DBIx::Class is the solution to your Perl data storage problems, then you can probably skip this chapter and move straight on to [](chapter_02-databases-design-and-layout), or [](chapter_03-describing-your-database) to start learning. This chapter explains what DBIx::Class is and when to use it instead of some other ways of storing data.
 
 What is DBIx::Class?
@@ -44,6 +42,7 @@ Data::Dumper[^datadumper] is a module for outputting a string representation of 
 * No control over which data is added, changed or removed (permissions).
 * No transaction support - data lost if file system disappears mid write/read.
 * No permissions system
+* No support for any type of searching
 
 #### Useful for
 
@@ -75,6 +74,7 @@ CPAN[^CPAN] has modules such as XML::Simple[^xmlsimple], JSON[^json], Text::xSV[
 * Network transportable data.
 * Data streaming.
 * Human-readable.
+* Searching can be done using XPath.
 
 #### Cons
 
@@ -145,6 +145,7 @@ Databases are systems for storing structured data, in a pre-defined layout. The 
 * Control over data access / authentication.
 * Transactions.
 * Scalable for large amounts of data.
+* Many ways to search and combine the data.
 
 #### Cons
 
@@ -184,6 +185,7 @@ NoSQL actually means "Not a traditional relational database". Some NoSQL systems
 
 * Faster than traditional databases.
 * No structure defintions required.
+* Structured searching usually included.
 
 #### Cons
 
