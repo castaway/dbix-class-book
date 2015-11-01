@@ -103,7 +103,7 @@ install the database including versioning tables:
     
     use DBIx::Class::DeploymentHandler;
     use MyBlog::Schema;
-    get Getopt::Long;
+    use Getopt::Long;
     
     my $setup = 0;
     GetOptions('setup' => \$setup);
@@ -168,7 +168,7 @@ together with the versions it should convert from and to:
     
     use DBIx::Class::DeploymentHandler;
     use MyBlog::Schema;
-    get Getopt::Long;
+    use Getopt::Long;
     
     my $setup = 0;
     my $from_ver = 0;

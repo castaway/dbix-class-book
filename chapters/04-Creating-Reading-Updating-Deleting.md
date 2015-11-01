@@ -440,7 +440,7 @@ To run the test you will need to install the XML::Simple[^xmlsimple] module.
     my $schema = MyBlog::Schema->connect('dbi:SQLite:t/var/myblog.db');
     $schema->deploy();
 
-    my $alice = $schema->resultset('Uesr')->create(
+    my $alice = $schema->resultset('User')->create(
     {
       realname => 'Alice Bloggs', 
       username => 'alice', 
@@ -521,7 +521,7 @@ details on search conditions.
 
 If you've been reading this entire chapter you might have guessed by
 now which method we can use to delete a row, or even multiple rows,
-from the database, its `delete`.
+from the database, it's `delete`.
 
 To remove a single user from the system, find the row object and call
 the `delete` method on it:
@@ -551,7 +551,7 @@ up in the Result class. The attempt to delete related rows can be
 turned off by setting the `cascade_delete` attribute on the
 relationship to a false value:
 
-    32. __PACKAGE__->has_many('posts', 
+    33. __PACKAGE__->has_many('posts', 
                               'MyBlog::Schema::Result::Post', 
                               'user_id', 
                               { cascade_delete => 0 },
@@ -772,7 +772,7 @@ So we can replace this sort of code:
         email => 'fred@barney.com',
       });
     } else {
-      $fred_exists->update({ 
+      $fred_exists->create({ 
         realname => 'Fred Barney',
         email => 'fred@barney.com',
         username => 'fred',
